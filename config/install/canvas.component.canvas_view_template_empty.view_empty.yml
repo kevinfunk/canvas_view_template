@@ -1,0 +1,25 @@
+# The "View no results" component: a container whose slot is shown only when the
+# View has no results. With nothing in the slot, the Views UI "no results" content shows.
+# @see \Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateEmpty
+langcode: en
+status: true
+dependencies:
+  enforced:
+    module:
+      - canvas_view_template
+active_version: 824e53c69c911720
+versioned_properties:
+  active:
+    settings: {  }
+    fallback_metadata:
+      slot_definitions:
+        content:
+          title: Content
+          description: 'Shown only when the view has no results.'
+          examples:
+            - ''
+label: 'View no results'
+id: canvas_view_template_empty.view_empty
+provider: canvas_view_template
+source: canvas_view_template_empty
+source_local_id: view_empty

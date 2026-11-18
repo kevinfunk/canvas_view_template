@@ -1,0 +1,42 @@
+services:
+  Drupal\canvas_view_template\Render\ViewTemplateRenderer: {}
+  canvas_view_template.route_subscriber:
+    class: Drupal\canvas_view_template\Routing\ViewTemplateRouteSubscriber
+    tags:
+      - { name: event_subscriber }
+  canvas_view_template.entity_form_fields_subscriber:
+    class: Drupal\canvas_view_template\EventSubscriber\ViewTemplateEntityFormFieldsSubscriber
+    tags:
+      - { name: event_subscriber }
+  Drupal\canvas_view_template\ViewTemplateUsage:
+    arguments: ['@entity_type.manager']
+  Drupal\canvas_view_template\Preview\ViewTemplatePreviewSelection:
+    arguments:
+      - '@tempstore.private'
+      - '@Drupal\canvas_view_template\ViewTemplateUsage'
+  Drupal\canvas_view_template\Preview\ViewPreviewBuilder: {}
+  Drupal\canvas_view_template\Preview\ViewTemplateLivePreview:
+    arguments:
+      - '@Drupal\canvas_view_template\Preview\ViewTemplatePreviewSelection'
+      - '@Drupal\canvas_view_template\Preview\ViewPreviewBuilder'
+      - '@Drupal\canvas_view_template\Render\ViewTemplateRenderer'
+      - '@Drupal\canvas\AutoSave\AutoSaveManager'
+  canvas_view_template.preview_subscriber:
+    class: Drupal\canvas_view_template\EventSubscriber\ViewTemplatePreviewSubscriber
+    arguments:
+      - '@Drupal\canvas_view_template\Preview\ViewTemplatePreviewSelection'
+      - '@Drupal\canvas_view_template\Preview\ViewTemplateLivePreview'
+      - '@url_generator'
+      - '@Drupal\canvas\AutoSave\AutoSaveManager'
+    tags:
+      - { name: event_subscriber }
+  canvas_view_template.entity_form_controller_subscriber:
+    class: Drupal\canvas_view_template\EventSubscriber\ViewTemplateEntityFormControllerSubscriber
+    arguments: ['@form_builder']
+    tags:
+      - { name: event_subscriber }
+  canvas_view_template.page_variant_selector_subscriber:
+    class: Drupal\canvas_view_template\EventSubscriber\ViewTemplatePageVariantSelectorSubscriber
+    arguments: ['@entity_type.manager', '@router.admin_context', '@Drupal\canvas_view_template\Preview\ViewTemplatePreviewSelection']
+    tags:
+      - { name: event_subscriber }

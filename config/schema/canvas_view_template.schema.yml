@@ -1,0 +1,47 @@
+# Modeled on Canvas's canvas.page_variant.* schema.
+# @see \Drupal\canvas\Entity\PageVariant
+canvas_view_template.view_template.*:
+  type: config_entity
+  constraints:
+    FullyValidatable: ~
+  mapping:
+    id:
+      type: machine_name
+      label: 'ID'
+    label:
+      type: required_label
+      label: 'Label'
+    description:
+      type: text
+      label: 'Description'
+      nullable: true
+    component_tree:
+      type: canvas.component_tree
+      # A view template with no components yet may be `null`.
+      nullable: true
+      constraints:
+        # At most one "View rows" placeholder. ("View repeater" may appear
+        # several times, side by side, each rendering its own slice of rows.)
+        # @see \Drupal\canvas_view_template\Plugin\Validation\Constraint\ViewTemplateAtMostOneRowsConstraintValidator::VIEW_ROWS_COMPONENT_ID
+        ViewTemplateAtMostOneRows: ~
+        # A "View repeater" cannot be placed inside another one.
+        # @see \Drupal\canvas_view_template\Plugin\Validation\Constraint\ViewTemplateNoNestedRepeaterConstraintValidator
+        ViewTemplateNoNestedRepeater: ~
+        # Nor can components that show the whole view (rows, pager, ...).
+        # @see \Drupal\canvas_view_template\Plugin\Validation\Constraint\ViewTemplateRepeaterContentsConstraintValidator
+        ViewTemplateRepeaterContents: ~
+
+# The "Canvas view template" Views style plugin's own options.
+# @see \Drupal\canvas_view_template\Plugin\views\style\ViewTemplateStyle
+views.style.canvas_view_template:
+  type: views_style
+  label: 'Canvas view template'
+  mapping:
+    view_template:
+      type: string
+      label: 'View template'
+      nullable: true
+    page_variant:
+      type: string
+      label: 'Page template'
+      nullable: true

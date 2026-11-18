@@ -1,0 +1,25 @@
+# The "View item link" component: a container whose slot is wrapped in a link to
+# the current item's page.
+# @see \Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateItemLink
+langcode: en
+status: true
+dependencies:
+  enforced:
+    module:
+      - canvas_view_template
+active_version: 384e4038b9cfd2b3
+versioned_properties:
+  active:
+    settings: {  }
+    fallback_metadata:
+      slot_definitions:
+        content:
+          title: Content
+          description: "Linked to the current item's page."
+          examples:
+            - ''
+label: 'View item link'
+id: canvas_view_template_item_link.view_item_link
+provider: canvas_view_template
+source: canvas_view_template_item_link
+source_local_id: view_item_link

@@ -1,0 +1,20 @@
+# The "View item" placeholder: one row. Inside a "View repeater" it gets a different
+# row on each repetition; elsewhere it shows the first row.
+# @see \Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplatePlaceholder
+langcode: en
+status: true
+dependencies:
+  enforced:
+    module:
+      - canvas_view_template
+active_version: 3b12c0b99a6caecc
+versioned_properties:
+  active:
+    settings: {  }
+    fallback_metadata:
+      slot_definitions: {  }
+label: 'View item'
+id: canvas_view_template_placeholder.view_item
+provider: canvas_view_template
+source: canvas_view_template_placeholder
+source_local_id: view_item

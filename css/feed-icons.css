@@ -1,0 +1,18 @@
+/**
+ * @file
+ * "View feed icons" with the label hidden.
+ *
+ * Hides the feed's title visually but keeps it for screen readers.
+ */
+
+.cvt-feed-icons--label-hidden .feed-icon__label {
+  position: absolute !important;
+  overflow: hidden;
+  clip-path: inset(50%);
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  word-wrap: normal;
+}

@@ -1,0 +1,19 @@
+# The "View title" component: the View's title as a heading (h1-h6) or plain text.
+# @see \Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateTitle
+langcode: en
+status: true
+dependencies:
+  enforced:
+    module:
+      - canvas_view_template
+active_version: e36bdac8a75de1c7
+versioned_properties:
+  active:
+    settings: {  }
+    fallback_metadata:
+      slot_definitions: {  }
+label: 'View title'
+id: canvas_view_template_title.view_title
+provider: canvas_view_template
+source: canvas_view_template_title
+source_local_id: view_title

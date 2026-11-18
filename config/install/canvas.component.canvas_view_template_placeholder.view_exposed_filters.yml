@@ -1,0 +1,19 @@
+# The "View exposed filters" placeholder: marks where the exposed filter form goes.
+# @see \Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplatePlaceholder
+langcode: en
+status: true
+dependencies:
+  enforced:
+    module:
+      - canvas_view_template
+active_version: 3b12c0b99a6caecc
+versioned_properties:
+  active:
+    settings: {  }
+    fallback_metadata:
+      slot_definitions: {  }
+label: 'View exposed filters'
+id: canvas_view_template_placeholder.view_exposed_filters
+provider: canvas_view_template
+source: canvas_view_template_placeholder
+source_local_id: view_exposed_filters

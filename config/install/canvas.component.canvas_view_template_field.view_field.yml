@@ -1,0 +1,20 @@
+# The "View field" component: one field of the current item, for use inside a
+# "View repeater".
+# @see \Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateField
+langcode: en
+status: true
+dependencies:
+  enforced:
+    module:
+      - canvas_view_template
+active_version: 7fa4f45309c178ff
+versioned_properties:
+  active:
+    settings: {  }
+    fallback_metadata:
+      slot_definitions: {  }
+label: 'View field'
+id: canvas_view_template_field.view_field
+provider: canvas_view_template
+source: canvas_view_template_field
+source_local_id: view_field

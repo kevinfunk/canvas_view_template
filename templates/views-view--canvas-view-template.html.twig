@@ -1,0 +1,20 @@
+{#
+/**
+ * @file
+ * View output rendered through a Canvas view template.
+ *
+ * The wrapper mirrors core's views-view.html.twig: Views' AJAX finds the view
+ * by its `js-view-dom-id-*` class, and contextual links use the title prefix
+ * and suffix.
+ */
+#}
+{%
+  set classes = [
+    dom_id ? 'js-view-dom-id-' ~ dom_id,
+  ]
+%}
+<div{{ attributes.addClass(classes) }}>
+  {{ title_prefix }}
+  {{ canvas_view_template_output }}
+  {{ title_suffix }}
+</div>

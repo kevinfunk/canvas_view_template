@@ -1,0 +1,53 @@
+/**
+ * @file
+ * Editor and full-width preview styles for a view template.
+ */
+
+/**
+ * A bigger drop zone for an empty view template. `html` out-ranks Canvas's own
+ * rule whichever stylesheet loads last.
+ */
+html .canvas--region-empty-placeholder {
+  min-height: 24rem;
+}
+
+/* Preview notes: no view chosen, and view failed to load. */
+.cvt-preview-hint {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px dashed #8a8a8a;
+  border-radius: 4px;
+  background: #f6f6f8;
+  color: #3a3a3a;
+  font: 0.875rem/1.4 system-ui, sans-serif;
+}
+
+.cvt-preview-error {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid #b3261e;
+  border-radius: 4px;
+  background: #fdf0ef;
+  color: #601410;
+  font: 0.875rem/1.4 system-ui, sans-serif;
+}
+
+.cvt-preview-error[hidden] {
+  display: none;
+}
+
+.cvt-preview-warning {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid #b3261e;
+  border-radius: 4px;
+  background: #fdf0ef;
+  color: #601410;
+  font: 0.875rem/1.4 system-ui, sans-serif;
+}
+
+/* The live content while a filter or pager change loads. */
+.cvt-live-preview[aria-busy="true"] {
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}

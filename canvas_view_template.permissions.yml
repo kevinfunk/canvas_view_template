@@ -1,0 +1,3 @@
+administer view template:
+  title: 'Administer view template'
+  description: 'Create and edit the view templates that render Drupal Views displays.'

@@ -1,0 +1,19 @@
+# The "View header" placeholder: marks where the View's header areas go.
+# @see \Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplatePlaceholder
+langcode: en
+status: true
+dependencies:
+  enforced:
+    module:
+      - canvas_view_template
+active_version: 3b12c0b99a6caecc
+versioned_properties:
+  active:
+    settings: {  }
+    fallback_metadata:
+      slot_definitions: {  }
+label: 'View header'
+id: canvas_view_template_placeholder.view_header
+provider: canvas_view_template
+source: canvas_view_template_placeholder
+source_local_id: view_header

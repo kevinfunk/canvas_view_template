@@ -1,0 +1,319 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the Canvas View Templates module.
+ */
+
+use Drupal\canvas\AutoSave\AutoSaveManager;
+use Drupal\canvas\Entity\Component;
+use Drupal\canvas\Entity\ComponentTreeConfigEntityBase;
+use Drupal\canvas\Entity\Folder;
+use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateCondition;
+use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateEmpty;
+use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateFeedIcons;
+use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateField;
+use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateItemLink;
+use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplatePlaceholder;
+use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateRepeater;
+use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateSummary;
+use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateTitle;
+
+/**
+ * Implements hook_uninstall().
+ *
+ * Deletes the Components via the entity API, which triggers Folder cleanup.
+ */
+function canvas_view_template_uninstall(bool $is_syncing): void {
+  if ($is_syncing) {
+    return;
+  }
+  $local_ids = [
+    ViewTemplatePlaceholder::VIEW_ROWS_LOCAL_ID,
+    ViewTemplatePlaceholder::VIEW_EXPOSED_FILTERS_LOCAL_ID,
+    ViewTemplatePlaceholder::VIEW_PAGER_LOCAL_ID,
+    ViewTemplatePlaceholder::VIEW_ITEM_LOCAL_ID,
+    ViewTemplatePlaceholder::VIEW_HEADER_LOCAL_ID,
+    ViewTemplatePlaceholder::VIEW_FOOTER_LOCAL_ID,
+    ViewTemplatePlaceholder::VIEW_MORE_LOCAL_ID,
+    ViewTemplatePlaceholder::VIEW_ATTACHMENTS_LOCAL_ID,
+  ];
+  foreach ($local_ids as $local_id) {
+    $placeholder = Component::load(ViewTemplatePlaceholder::SOURCE_PLUGIN_ID . '.' . $local_id);
+    $placeholder?->delete();
+  }
+  $empty = Component::load(ViewTemplateEmpty::SOURCE_PLUGIN_ID . '.' . ViewTemplateEmpty::LOCAL_ID);
+  $empty?->delete();
+  $title = Component::load(ViewTemplateTitle::SOURCE_PLUGIN_ID . '.' . ViewTemplateTitle::LOCAL_ID);
+  $title?->delete();
+  $field = Component::load(ViewTemplateField::SOURCE_PLUGIN_ID . '.' . ViewTemplateField::LOCAL_ID);
+  $field?->delete();
+  $item_link = Component::load(ViewTemplateItemLink::SOURCE_PLUGIN_ID . '.' . ViewTemplateItemLink::LOCAL_ID);
+  $item_link?->delete();
+  $condition = Component::load(ViewTemplateCondition::SOURCE_PLUGIN_ID . '.' . ViewTemplateCondition::LOCAL_ID);
+  $condition?->delete();
+  $feed_icons = Component::load(ViewTemplateFeedIcons::SOURCE_PLUGIN_ID . '.' . ViewTemplateFeedIcons::LOCAL_ID);
+  $feed_icons?->delete();
+  $summary = Component::load(ViewTemplateSummary::SOURCE_PLUGIN_ID . '.' . ViewTemplateSummary::LOCAL_ID);
+  $summary?->delete();
+  $repeater = Component::load(ViewTemplateRepeater::SOURCE_PLUGIN_ID . '.' . ViewTemplateRepeater::LOCAL_ID);
+  $repeater?->delete();
+  // Canvas does not prune empty folders.
+  $folder = Folder::loadByNameAndConfigEntityTypeId(ViewTemplatePlaceholder::LIBRARY_FOLDER_NAME, Component::ENTITY_TYPE_ID);
+  if ($folder !== NULL && $folder->get('items') === []) {
+    $folder->delete();
+  }
+}
+
+/**
+ * Adds the header, footer, empty and title components.
+ */
+function canvas_view_template_update_10002(): void {
+  \Drupal::service('config.installer')->installDefaultConfig('module', 'canvas_view_template');
+}
+
+/**
+ * Makes "View empty" a container with a slot.
+ *
+ * Replaces the old placeholder version.
+ */
+function canvas_view_template_update_10003(): void {
+  \Drupal::service('config.installer')->installDefaultConfig('module', 'canvas_view_template');
+  // Move first: deleting the old component deletes everything depending on it.
+  _canvas_view_template_move_placements(
+    ViewTemplatePlaceholder::SOURCE_PLUGIN_ID . '.view_empty',
+    ViewTemplateEmpty::SOURCE_PLUGIN_ID . '.' . ViewTemplateEmpty::LOCAL_ID,
+    [],
+  );
+  Component::load(ViewTemplatePlaceholder::SOURCE_PLUGIN_ID . '.view_empty')?->delete();
+}
+
+/**
+ * Moves placements of the old "View empty" placeholder to the new component.
+ */
+function canvas_view_template_update_10004(): void {
+  \Drupal::service('config.installer')->installDefaultConfig('module', 'canvas_view_template');
+  _canvas_view_template_move_placements(
+    ViewTemplatePlaceholder::SOURCE_PLUGIN_ID . '.view_empty',
+    ViewTemplateEmpty::SOURCE_PLUGIN_ID . '.' . ViewTemplateEmpty::LOCAL_ID,
+    [],
+  );
+}
+
+/**
+ * Makes "View title" a component with an "Element" setting.
+ *
+ * Existing placements move to it with the default level (h2).
+ */
+function canvas_view_template_update_10005(): void {
+  \Drupal::service('config.installer')->installDefaultConfig('module', 'canvas_view_template');
+  _canvas_view_template_move_placements(
+    ViewTemplatePlaceholder::SOURCE_PLUGIN_ID . '.view_title',
+    ViewTemplateTitle::SOURCE_PLUGIN_ID . '.' . ViewTemplateTitle::LOCAL_ID,
+    [ViewTemplateTitle::INPUT_ELEMENT => ViewTemplateTitle::DEFAULT_ELEMENT],
+  );
+  Component::load(ViewTemplatePlaceholder::SOURCE_PLUGIN_ID . '.view_title')?->delete();
+}
+
+/**
+ * Stops Views depending on the templates they use.
+ */
+function canvas_view_template_update_10006(): void {
+  foreach (\Drupal::entityTypeManager()->getStorage('view')->loadMultiple() as $view) {
+    foreach ($view->get('display') as $display) {
+      $style = $display['display_options']['style'] ?? [];
+      if (($style['type'] ?? NULL) === 'canvas_view_template') {
+        $view->save();
+        break;
+      }
+    }
+  }
+}
+
+/**
+ * Renames "View empty" to "View no results" and the library folder.
+ *
+ * Labels only; component ids stay the same.
+ */
+function canvas_view_template_update_10007(): void {
+  \Drupal::service('config.installer')->installDefaultConfig('module', 'canvas_view_template');
+  $component = Component::load(ViewTemplateEmpty::SOURCE_PLUGIN_ID . '.' . ViewTemplateEmpty::LOCAL_ID);
+  if ($component !== NULL && $component->label() !== 'View no results') {
+    $component->set('label', 'View no results')->save();
+  }
+  $folder = Folder::loadByNameAndConfigEntityTypeId('View Template', Component::ENTITY_TYPE_ID);
+  $folder?->set('name', ViewTemplatePlaceholder::LIBRARY_FOLDER_NAME)->save();
+}
+
+/**
+ * Adds the "View field" component.
+ */
+function canvas_view_template_update_10008(): void {
+  \Drupal::service('config.installer')->installDefaultConfig('module', 'canvas_view_template');
+}
+
+/**
+ * Adds the "View result summary" component.
+ */
+function canvas_view_template_update_10009(): void {
+  \Drupal::service('config.installer')->installDefaultConfig('module', 'canvas_view_template');
+}
+
+/**
+ * Adds the "View more link" component.
+ */
+function canvas_view_template_update_10010(): void {
+  \Drupal::service('config.installer')->installDefaultConfig('module', 'canvas_view_template');
+}
+
+/**
+ * Adds the "View attachments" component.
+ */
+function canvas_view_template_update_10011(): void {
+  \Drupal::service('config.installer')->installDefaultConfig('module', 'canvas_view_template');
+}
+
+/**
+ * Adds the "View feed icons" component.
+ */
+function canvas_view_template_update_10012(): void {
+  \Drupal::service('config.installer')->installDefaultConfig('module', 'canvas_view_template');
+}
+
+/**
+ * Makes "View feed icons" a component with a "Label" setting.
+ *
+ * Existing placements move to it and keep showing the label.
+ */
+function canvas_view_template_update_10013(): void {
+  \Drupal::service('config.installer')->installDefaultConfig('module', 'canvas_view_template');
+  _canvas_view_template_move_placements(
+    ViewTemplatePlaceholder::SOURCE_PLUGIN_ID . '.view_feed_icons',
+    ViewTemplateFeedIcons::SOURCE_PLUGIN_ID . '.' . ViewTemplateFeedIcons::LOCAL_ID,
+    [ViewTemplateFeedIcons::INPUT_LABEL => ViewTemplateFeedIcons::LABEL_VISIBLE],
+  );
+  Component::load(ViewTemplatePlaceholder::SOURCE_PLUGIN_ID . '.view_feed_icons')?->delete();
+}
+
+/**
+ * Adds the "View condition" component.
+ */
+function canvas_view_template_update_10014(): void {
+  \Drupal::service('config.installer')->installDefaultConfig('module', 'canvas_view_template');
+}
+
+/**
+ * Adds the "View item link" component.
+ */
+function canvas_view_template_update_10015(): void {
+  \Drupal::service('config.installer')->installDefaultConfig('module', 'canvas_view_template');
+}
+
+/**
+ * Renames "View row link" to "View item link", keeping its placements.
+ */
+function canvas_view_template_update_10016(): void {
+  \Drupal::service('config.installer')->installDefaultConfig('module', 'canvas_view_template');
+  $old_id = 'canvas_view_template_row_link.view_row_link';
+  _canvas_view_template_move_placements(
+    $old_id,
+    ViewTemplateItemLink::SOURCE_PLUGIN_ID . '.' . ViewTemplateItemLink::LOCAL_ID,
+    static fn (array $inputs): array => [
+      ViewTemplateItemLink::INPUT_OPEN => $inputs['open'] ?? ViewTemplateItemLink::OPEN_SAME,
+    ],
+  );
+  // Its source plugin no longer exists, so remove it as plain config and from
+  // its folder.
+  $old_config = \Drupal::configFactory()->getEditable('canvas.component.' . $old_id);
+  if (!$old_config->isNew()) {
+    $old_config->delete();
+  }
+  foreach (Folder::loadMultiple() as $folder) {
+    $items = $folder->get('items');
+    if (\is_array($items) && \in_array($old_id, $items, TRUE)) {
+      $folder->set('items', \array_values(\array_diff($items, [$old_id])))->save();
+    }
+  }
+}
+
+/**
+ * Removes components that no longer exist from this module's library folder.
+ */
+function canvas_view_template_update_10017(): void {
+  $storage = \Drupal::entityTypeManager()->getStorage(Component::ENTITY_TYPE_ID);
+  foreach (Folder::loadMultiple() as $folder) {
+    if ($folder->get('configEntityTypeId') !== Component::ENTITY_TYPE_ID) {
+      continue;
+    }
+    $items = $folder->get('items');
+    $stale = \array_filter($items, static fn (string $id): bool => \str_starts_with($id, 'canvas_view_template_') && $storage->load($id) === NULL);
+    if ($stale !== []) {
+      $folder->set('items', \array_values(\array_diff($items, $stale)))->save();
+    }
+  }
+}
+
+/**
+ * Points every placement of one component at another, in trees and drafts.
+ *
+ * Covers every config entity with a component tree (view templates, patterns,
+ * content and page templates, page regions), not content entities such as
+ * Canvas pages. A placement of a missing component stops the editor loading
+ * the tree.
+ *
+ * @param string $old_id
+ *   The Component id being replaced (it may already be gone).
+ * @param string $new_id
+ *   The Component id that replaces it (it must exist).
+ * @param array|callable $new_inputs
+ *   The `inputs` for moved placements, or a function mapping the old inputs.
+ */
+function _canvas_view_template_move_placements(string $old_id, string $new_id, array|callable $new_inputs): void {
+  $new_component = Component::load($new_id);
+  if ($new_component === NULL) {
+    return;
+  }
+  $new_version = $new_component->getActiveVersion();
+  $rewrite = static function (array $tree) use ($old_id, $new_id, $new_version, $new_inputs): ?array {
+    $changed = FALSE;
+    foreach ($tree as $key => $item) {
+      if (($item['component_id'] ?? NULL) === $old_id) {
+        $tree[$key]['component_id'] = $new_id;
+        $tree[$key]['component_version'] = $new_version;
+        $tree[$key]['inputs'] = \is_callable($new_inputs) ? $new_inputs($item['inputs'] ?? []) : $new_inputs;
+        $changed = TRUE;
+      }
+    }
+    return $changed ? $tree : NULL;
+  };
+
+  $auto_save_manager = \Drupal::service(AutoSaveManager::class);
+  $entity_type_manager = \Drupal::entityTypeManager();
+  foreach ($entity_type_manager->getDefinitions() as $entity_type_id => $definition) {
+    if (!\is_subclass_of($definition->getClass(), ComponentTreeConfigEntityBase::class)) {
+      continue;
+    }
+    foreach ($entity_type_manager->getStorage($entity_type_id)->loadMultiple() as $entity) {
+      // Read the draft first: saving a Canvas config entity's tree discards it.
+      $draft = $auto_save_manager->getAutoSaveEntity($entity, TRUE);
+      // Raw data: the tree may point at a missing component, which would fail
+      // if hydrated.
+      $tree = $rewrite($entity->toArray()['component_tree'] ?? []);
+      if ($tree !== NULL) {
+        $entity->set('component_tree', $tree)->save();
+      }
+      if ($draft->isEmpty()) {
+        continue;
+      }
+      $draft_tree = $rewrite($draft->entity->toArray()['component_tree'] ?? []);
+      if ($draft_tree !== NULL) {
+        $draft->entity->set('component_tree', $draft_tree);
+      }
+      if ($draft_tree !== NULL || $auto_save_manager->getAutoSaveEntity($entity, TRUE)->isEmpty()) {
+        // The draft's owner and time become the current user and now: the
+        // AutoSaveManager API has no way to keep them.
+        $auto_save_manager->saveEntity($draft->entity, $draft->clientId);
+      }
+    }
+  }
+}

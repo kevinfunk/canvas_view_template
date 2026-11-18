@@ -1,0 +1,80 @@
+# Component settings form for view templates. Canvas's generic route asserts a
+# fixed list of entity types. The literal `view_template` segment wins over it,
+# and the `canvas.api.form.` prefix keeps Canvas's canvas_stark theme negotiation.
+# @see \Drupal\canvas_view_template\Form\ViewTemplateComponentInstanceForm
+canvas.api.form.component_instance.view_template:
+  path: '/canvas/api/v0/form/component-instance/view_template/{entity}'
+  defaults:
+    _form: 'Drupal\canvas_view_template\Form\ViewTemplateComponentInstanceForm'
+    _title: 'Component Instance Form'
+  requirements:
+    _canvas_authentication_required: TRUE
+    _canvas_component_tree_edit_access: TRUE
+    _entity_access: 'entity.update'
+  options:
+    _wrapper_format: 'canvas_template'
+    parameters:
+      entity:
+        type: entity:view_template
+    _format: 'json'
+  methods:
+    - PATCH
+    - POST
+
+# Re-renders the full-width preview's live content on filter or pager use.
+# @see js/live-preview.js
+canvas_view_template.live_preview:
+  path: '/canvas-view-template/live-preview/{view_template}'
+  defaults:
+    _controller: 'Drupal\canvas_view_template\Controller\ViewTemplateLivePreviewController::render'
+  requirements:
+    _entity_access: 'view_template.update'
+  options:
+    parameters:
+      view_template:
+        type: entity:view_template
+  methods:
+    - GET
+
+# Which View displays use a view template (asked before a delete).
+# @see extension/app.js
+canvas_view_template.usage:
+  path: '/canvas-view-template/usage/{view_template}'
+  defaults:
+    _controller: 'Drupal\canvas_view_template\Controller\ViewTemplateUsageController::usage'
+  requirements:
+    # Not `view_template.delete`: that is denied while the template is in use.
+    _permission: 'administer view template'
+  options:
+    parameters:
+      view_template:
+        type: entity:view_template
+  methods:
+    - GET
+
+# The displays using each view template.
+# @see extension/app.js
+canvas_view_template.usage_all:
+  path: '/canvas-view-template/usage'
+  defaults:
+    _controller: 'Drupal\canvas_view_template\Controller\ViewTemplateUsageController::all'
+  requirements:
+    _permission: 'administer view template'
+  methods:
+    - GET
+
+# Copies a view template under a new name.
+# @see extension/app.js
+canvas_view_template.duplicate:
+  path: '/canvas-view-template/duplicate/{view_template}'
+  defaults:
+    _controller: 'Drupal\canvas_view_template\Controller\ViewTemplateDuplicateController::duplicate'
+  requirements:
+    _permission: 'administer view template'
+    _csrf_request_header_token: 'TRUE'
+  options:
+    parameters:
+      view_template:
+        type: entity:view_template
+  methods:
+    - POST

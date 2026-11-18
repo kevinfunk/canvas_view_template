@@ -1,0 +1,188 @@
+/*
+ * Dialogs and row menu for the "View templates" tool. They are added to the
+ * Canvas editor's page (not the 296px iframe), so they cover the whole window.
+ * Everything is prefixed `cvt-` to avoid collisions with Canvas's styles.
+ * Sizes follow Canvas's (Radix Themes), compared with Canvas 1.12.0; see the
+ * note on the menu below.
+ */
+.cvt-overlay {
+  --cvt-slate-3: #f0f0f3;
+  --cvt-slate-4: #e8e8ec;
+  --cvt-slate-7: #cdced6;
+  --cvt-slate-11: #60646c;
+  --cvt-slate-12: #1c2024;
+  --cvt-blue-3: #e6f4fe;
+  --cvt-blue-8: #5eb1ef;
+  --cvt-blue-9: #0090ff;
+  --cvt-blue-11: #0d74ce;
+  --cvt-red-9: #e5484d;
+  --cvt-red-11: #ce2c31;
+
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.4);
+  color: var(--cvt-slate-12);
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.cvt-overlay *,
+.cvt-overlay *::before,
+.cvt-overlay *::after { box-sizing: border-box; }
+
+.cvt-dialog:focus { outline: none; }
+.cvt-dialog {
+  /* Same width and padding as Canvas's dialogs. */
+  width: 287px;
+  max-width: 100%;
+  padding: 24px;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 12px 60px rgba(0, 0, 0, 0.3);
+}
+.cvt-dialog__title { margin: 0 0 8px; font-size: 14px; line-height: 1; font-weight: 700; }
+.cvt-dialog__text { margin: 0 0 16px; }
+.cvt-dialog__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+
+.cvt-field { display: block; margin-bottom: 8px; }
+.cvt-field span { display: block; margin-bottom: 4px; color: var(--cvt-slate-11); font-size: 12px; line-height: 16px; font-weight: 700; }
+.cvt-field em { font-style: normal; font-weight: 400; }
+.cvt-field input {
+  display: block;
+  width: 100%;
+  height: 24px;
+  margin: 0;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 4px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  box-shadow: inset 0 0 0 1px var(--cvt-slate-7);
+}
+.cvt-field input:focus { outline: 2px solid var(--cvt-blue-8); outline-offset: -1px; }
+.cvt-field input[aria-invalid='true'] { box-shadow: inset 0 0 0 1px var(--cvt-red-11); }
+.cvt-button:focus-visible { outline: 2px solid var(--cvt-blue-8); outline-offset: 1px; }
+
+.cvt-error { margin: 0 0 8px; color: var(--cvt-red-11); font-size: 12px; line-height: 16px; }
+
+.cvt-button {
+  /* Radix Button size 1. */
+  height: 24px;
+  margin: 0;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.cvt-button--gray { background: var(--cvt-slate-3); color: var(--cvt-slate-12); }
+.cvt-button--gray:hover { background: var(--cvt-slate-4); }
+/* Colours match Canvas's on purpose: white on blue-9 / red-9 and the menu label grey fail WCAG AA. */
+.cvt-button--solid { background: var(--cvt-blue-9); color: #fff; }
+.cvt-button--solid:hover { background: #0588f0; }
+.cvt-button--outline {
+  background: #fff;
+  color: var(--cvt-blue-11);
+  box-shadow: inset 0 0 0 1px var(--cvt-blue-8);
+}
+.cvt-button--outline:hover { background: var(--cvt-blue-3); }
+.cvt-button--danger { background: var(--cvt-red-9); color: #fff; }
+.cvt-button--danger:hover { background: #dc3d43; }
+.cvt-button:disabled { opacity: 0.6; cursor: default; }
+
+/*
+ * The row menu, drawn in the editor page so it can hang out over the preview.
+ *
+ * The numbers come from Canvas's own menus: the Radix Themes dropdown at size 2,
+ * accent blue, scaling 100%, medium radius (`rt-BaseMenu*` in Canvas's compiled
+ * stylesheet). The Radix tokens used are written out below.
+ *
+ * Compared with Canvas 1.12.0. To re-check after a Canvas update, compare with
+ * those rules and the `--accent-9`, `--red-9`, `--slate-a*` and `--space-*` tokens.
+ */
+.cvt-menu {
+  --cvt-space-2: 8px;
+  --cvt-space-3: 12px;
+  --cvt-space-6: 32px;
+  --cvt-radius-2: 4px;
+  --cvt-radius-4: 8px;
+  --cvt-gray-12: #1c2024;
+  --cvt-gray-a6: #00002f26;
+  --cvt-gray-a10: #00071b7f;
+  --cvt-accent-9: #0090ff;
+  --cvt-red-9: #e5484d;
+  --cvt-red-a11: #c40006d3;
+
+  position: fixed;
+  z-index: 2147482000;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  padding: var(--cvt-space-2);
+  border-radius: var(--cvt-radius-4);
+  background-color: #fff;
+  color: var(--cvt-gray-12);
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  box-shadow: 0 0 0 1px #0000330f, 0 12px 60px rgba(0, 0, 0, 0.15), 0 12px 32px -16px #0009321f;
+}
+.cvt-menu *,
+.cvt-menu *::before,
+.cvt-menu *::after { box-sizing: border-box; }
+.cvt-menu__label {
+  display: flex;
+  align-items: center;
+  height: var(--cvt-space-6);
+  padding: 0 var(--cvt-space-3);
+  overflow: hidden;
+  color: var(--cvt-gray-a10);
+  white-space: nowrap;
+  cursor: default;
+  user-select: none;
+}
+.cvt-menu__separator {
+  height: 1px;
+  margin: var(--cvt-space-2) var(--cvt-space-3);
+  background-color: var(--cvt-gray-a6);
+}
+.cvt-menu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--cvt-space-2);
+  width: 100%;
+  height: var(--cvt-space-6);
+  margin: 0;
+  padding: 0 var(--cvt-space-3);
+  border: 0;
+  border-radius: var(--cvt-radius-2);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  outline: none;
+  cursor: default;
+  user-select: none;
+}
+.cvt-menu__item:hover,
+.cvt-menu__item:focus-visible {
+  background-color: var(--cvt-accent-9);
+  color: #fff;
+}
+.cvt-menu__item--danger { color: var(--cvt-red-a11); }
+.cvt-menu__item--danger:hover,
+.cvt-menu__item--danger:focus-visible {
+  background-color: var(--cvt-red-9);
+  color: #fff;
+}

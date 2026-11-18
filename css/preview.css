@@ -1,0 +1,130 @@
+/**
+ * Marker components (View rows, repeater, item, exposed filters, pager) have no
+ * `span` prop and can sit directly in a Row's grid slot, where a grid item
+ * would otherwise take one 1/12 track. Make them span the full row. This does
+ * nothing when the parent is not a CSS grid.
+ *
+ * @see \Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateMarkerPreviewTrait
+ * @see canvas_layout_components/components/row/row.css
+ * @see canvas_layout_components/components/column/column.css
+ */
+.canvas-view-template--marker-preview {
+  grid-column: 1 / -1;
+}
+
+/**
+ * The "View repeater" `item` slot gets Row's 12-column grid, so a Column dropped
+ * directly into it works without a wrapping Row.
+ *
+ * @see \Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateRepeater::setSlots()
+ * @see canvas_layout_components/components/row/row.css
+ */
+.canvas-view-template--slot-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+}
+
+.canvas-view-template--slot-grid > *:not(.layout-column) {
+  grid-column: 1 / -1;
+}
+
+/**
+ * Compact editor preview of this module's components: icon, name, caption and
+ * setting chips. The doubled class beats Canvas's own marker rules.
+ *
+ * @see \Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateMarkerPreviewTrait::buildMarkerStylePreview()
+ */
+.canvas--page-content-marker-placeholder.cvt-marker {
+  /* No explicit width, so a Container's alignment still shows. */
+  align-items: stretch;
+  justify-content: flex-start;
+  min-height: 0;
+  padding: 10px 12px;
+  text-align: left;
+  gap: 8px;
+}
+
+.cvt-marker__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cvt-marker__icon {
+  display: flex;
+  flex-shrink: 0;
+  color: #18794e;
+}
+
+.cvt-marker__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  text-align: left;
+}
+
+.cvt-marker .canvas--page-content-marker-placeholder__title {
+  font-size: 13px;
+  line-height: 18px;
+}
+
+/* Canvas dims the caption to 70%, which is too faint on the tinted box. */
+.cvt-marker .canvas--page-content-marker-placeholder__caption {
+  color: #18794e;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.cvt-marker__chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.cvt-marker__chip {
+  padding: 1px 8px;
+  border: 1px solid rgb(48, 164, 108, 0.35);
+  border-radius: 999px;
+  background: #e6f6eb;
+  color: #18794e;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+/**
+ * The repeater's slot: two faint outlines behind each dropped item show that it
+ * repeats. They are box-shadows on the items, so they hug narrow items.
+ */
+.cvt-marker__stack {
+  margin: 0 8px 8px 0;
+}
+
+.cvt-marker__stack .canvas-view-template--slot-grid > * {
+  box-shadow:
+    4px 4px 0 0 #fff,
+    4px 4px 0 1px rgb(48, 164, 108, 0.35),
+    8px 8px 0 0 #fff,
+    8px 8px 0 1px rgb(48, 164, 108, 0.2);
+}
+
+/* Placeholders dropped into the slot read as cards on top of the stack. */
+.cvt-marker__stack .canvas--page-content-marker-placeholder.cvt-marker {
+  background: #fff;
+}
+
+/* The slot of "View no results". */
+.cvt-marker__slot {
+  padding: 8px;
+  border: 1.5px dashed rgb(48, 164, 108, 0.35);
+  border-radius: 8px;
+  background: #fff;
+}
+
+/* The label of a "View field". */
+.cvt-field__label {
+  font-weight: 600;
+}

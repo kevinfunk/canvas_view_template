@@ -1,0 +1,13 @@
+/**
+ * @file
+ * A "View field" with its label beside the value.
+ *
+ * A row of two items, so it works for block or inline field markup.
+ */
+
+.cvt-field--inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.35em;
+}

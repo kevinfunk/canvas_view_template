@@ -1,0 +1,20 @@
+# The "View feed icons" component: the feed icon of each attached Feed display,
+# with a "Label" setting to hide the feed title.
+# @see \Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateFeedIcons
+langcode: en
+status: true
+dependencies:
+  enforced:
+    module:
+      - canvas_view_template
+active_version: 221e58b792f9e961
+versioned_properties:
+  active:
+    settings: {  }
+    fallback_metadata:
+      slot_definitions: {  }
+label: 'View feed icons'
+id: canvas_view_template_feed_icons.view_feed_icons
+provider: canvas_view_template
+source: canvas_view_template_feed_icons
+source_local_id: view_feed_icons

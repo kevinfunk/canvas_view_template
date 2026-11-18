@@ -1,0 +1,35 @@
+preview:
+  css:
+    component:
+      css/preview.css: {}
+
+# Updates the "Edit this view template" link in Views UI.
+style_options:
+  js:
+    js/style-options.js: {}
+  dependencies:
+    - core/drupal
+    - core/once
+    - core/drupalSettings
+
+# "View field" label beside the value.
+field:
+  css:
+    component:
+      css/field.css: {}
+
+# "View feed icons" with the title hidden.
+feed_icons:
+  css:
+    component:
+      css/feed-icons.css: {}
+
+# Full-width preview: shows the content of the View chosen in Page data.
+live_preview:
+  css:
+    component:
+      css/live-preview.css: {}
+  js:
+    js/live-preview.js: {}
+  dependencies:
+    - core/drupal

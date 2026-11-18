@@ -1,0 +1,25 @@
+# The "View condition" component: a container whose slot is shown only when the
+# condition chosen in its "Show when" setting is met.
+# @see \Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateCondition
+langcode: en
+status: true
+dependencies:
+  enforced:
+    module:
+      - canvas_view_template
+active_version: ff829bc40866bf2f
+versioned_properties:
+  active:
+    settings: {  }
+    fallback_metadata:
+      slot_definitions:
+        content:
+          title: Content
+          description: 'Shown only when the condition is met.'
+          examples:
+            - ''
+label: 'View condition'
+id: canvas_view_template_condition.view_condition
+provider: canvas_view_template
+source: canvas_view_template_condition
+source_local_id: view_condition

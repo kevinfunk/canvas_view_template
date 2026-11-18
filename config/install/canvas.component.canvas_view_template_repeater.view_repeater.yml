@@ -1,0 +1,25 @@
+# The "View repeater" component: repeats its "item" slot once per row of the View,
+# each time with a different row via a nested "View item" placeholder.
+# @see \Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateRepeater
+langcode: en
+status: true
+dependencies:
+  enforced:
+    module:
+      - canvas_view_template
+active_version: b35927ac90b1545a
+versioned_properties:
+  active:
+    settings: {  }
+    fallback_metadata:
+      slot_definitions:
+        item:
+          title: Item
+          description: 'Placed here, once per item — typically a "View item" placeholder.'
+          examples:
+            - ''
+label: 'View repeater'
+id: canvas_view_template_repeater.view_repeater
+provider: canvas_view_template
+source: canvas_view_template_repeater
+source_local_id: view_repeater

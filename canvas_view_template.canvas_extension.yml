@@ -1,0 +1,12 @@
+# Adds a "View templates" tool to the Canvas editor's left rail. Canvas's own
+# Templates panel can't list third-party entity types.
+# @see extension/index.html
+view_templates:
+  name: View templates
+  description: Browse, create and edit the view templates used by Views displays.
+  url: extension/index.html
+  icon: extension/icon.svg
+  type: 'page'
+  api_version: "1.0"
+  permissions:
+    - administer view template

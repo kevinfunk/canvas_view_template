@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>View templates</title>
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <header class="panel__header">
+      <h1 class="panel__title">View templates</h1>
+      <button type="button" id="close-button" class="panel__close" aria-label="Close panel">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M11.7816 4.03157C12.0062 3.80702 12.0062 3.44295 11.7816 3.2184C11.5571 2.99385 11.193 2.99385 10.9685 3.2184L7.50005 6.68682L4.03164 3.2184C3.80708 2.99385 3.44301 2.99385 3.21846 3.2184C2.99391 3.44295 2.99391 3.80702 3.21846 4.03157L6.68688 7.49999L3.21846 10.9684C2.99391 11.193 2.99391 11.557 3.21846 11.7816C3.44301 12.0061 3.80708 12.0061 4.03164 11.7816L7.50005 8.31316L10.9685 11.7816C11.193 12.0061 11.5571 12.0061 11.7816 11.7816C12.0062 11.557 12.0062 11.193 11.7816 10.9684L8.31322 7.49999L11.7816 4.03157Z" fill="currentColor"/></svg>
+      </button>
+    </header>
+
+    <main class="panel">
+      <p class="panel__hint">
+        Canvas layouts that a Views display renders through. Choose one under
+        the view's Format settings.
+      </p>
+
+      <button type="button" id="new-button" class="soft-button">
+        <svg class="icon" width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M8 2.75C8 2.47386 7.77614 2.25 7.5 2.25C7.22386 2.25 7 2.47386 7 2.75V7H2.75C2.47386 7 2.25 7.22386 2.25 7.5C2.25 7.77614 2.47386 8 2.75 8H7V12.25C7 12.5261 7.22386 12.75 7.5 12.75C7.77614 12.75 8 12.5261 8 12.25V8H12.25C12.5261 8 12.75 7.77614 12.75 7.5C12.75 7.22386 12.5261 7 12.25 7H8V2.75Z" fill="currentColor"/></svg>
+        New view template
+      </button>
+
+      <div id="error-box" class="error-box" hidden>
+        <p id="error" class="error" role="alert"></p>
+        <button type="button" id="retry-button" class="link-button">Try again</button>
+      </div>
+      <p id="loading" class="muted" role="status">Loading&hellip;</p>
+      <p id="empty" class="muted" hidden>No view templates yet. Create one, then choose it under a view's Format settings.</p>
+      <p id="status" class="visually-hidden" role="status" aria-live="polite"></p>
+      <ul id="list" class="nodes"></ul>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

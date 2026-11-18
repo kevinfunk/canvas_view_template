@@ -1,0 +1,19 @@
+# The "View result summary" component: a line such as "Displaying 1 - 10 of 54".
+# @see \Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateSummary
+langcode: en
+status: true
+dependencies:
+  enforced:
+    module:
+      - canvas_view_template
+active_version: e452f0bda2be1c7e
+versioned_properties:
+  active:
+    settings: {  }
+    fallback_metadata:
+      slot_definitions: {  }
+label: 'View result summary'
+id: canvas_view_template_summary.view_summary
+provider: canvas_view_template
+source: canvas_view_template_summary
+source_local_id: view_summary

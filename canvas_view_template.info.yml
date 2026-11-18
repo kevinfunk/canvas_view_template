@@ -1,0 +1,8 @@
+name: 'Canvas View Template'
+type: module
+description: 'Provides a Canvas visual builder for templating Drupal Views displays.'
+package: 'Canvas'
+core_version_requirement: ^11.3
+dependencies:
+  - drupal:views
+  - canvas:canvas
