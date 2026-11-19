@@ -47,11 +47,11 @@ final class ViewTemplateComponentInstanceFormTest extends ViewTemplateKernelTest
   public function testRouteResolvesToForkedForm(): void {
     ViewTemplate::create(['id' => 'vt_route', 'label' => 'Route'])->save();
 
-    $request = Request::create('/canvas/api/v0/form/component-instance/view_template/vt_route', 'PATCH');
+    $request = Request::create('/canvas/api/v0/form/component-instance/canvas_view_template/vt_route', 'PATCH');
     $this->container->get('router.request_context')->fromRequest($request);
     $match = $this->container->get('router.no_access_checks')->matchRequest($request);
 
-    self::assertSame('canvas.api.form.component_instance.view_template', $match['_route']);
+    self::assertSame('canvas.api.form.component_instance.canvas_view_template', $match['_route']);
     self::assertSame(ViewTemplateComponentInstanceForm::class, $match['_form']);
     self::assertInstanceOf(ViewTemplate::class, $match['entity']);
   }
@@ -72,7 +72,7 @@ final class ViewTemplateComponentInstanceFormTest extends ViewTemplateKernelTest
     $source = $component->getComponentSource();
     $uuid = '11111111-1111-4111-8111-111111111111';
 
-    $request = Request::create('/canvas/api/v0/form/component-instance/view_template/vt_form', 'POST', [
+    $request = Request::create('/canvas/api/v0/form/component-instance/canvas_view_template/vt_form', 'POST', [
       'form_canvas_tree' => \json_encode(['type' => $component->id() . '@' . $component->getActiveVersion()]),
       'form_canvas_selected' => $uuid,
       'form_canvas_props' => \json_encode($source->inputToClientModel($source->getDefaultExplicitInput())),

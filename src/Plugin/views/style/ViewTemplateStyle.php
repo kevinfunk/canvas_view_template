@@ -15,6 +15,7 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Url;
 use Drupal\views\Attribute\ViewsStyle;
 use Drupal\views\Plugin\views\style\StylePluginBase;
+use Drupal\views\ViewExecutable;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -57,6 +58,23 @@ final class ViewTemplateStyle extends StylePluginBase {
    * Unlike an empty option, which uses the site default.
    */
   public const string NO_PAGE_VARIANT_OPTION_VALUE = '_none';
+
+  /**
+   * The style options a display stores, or NULL if it doesn't use this style.
+   *
+   * Reads the display's own option, so it works before the style plugin is
+   * built.
+   *
+   * @return array<string, mixed>|null
+   *   The options, or NULL.
+   */
+  public static function displayOptions(ViewExecutable $view): ?array {
+    $style = $view->display_handler->getOption('style');
+    if (!\is_array($style) || ($style['type'] ?? NULL) !== self::PLUGIN_ID) {
+      return NULL;
+    }
+    return \is_array($style['options'] ?? NULL) ? $style['options'] : [];
+  }
 
   /**
    * {@inheritdoc}

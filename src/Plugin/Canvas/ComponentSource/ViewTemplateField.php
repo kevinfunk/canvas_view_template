@@ -5,19 +5,18 @@ declare(strict_types=1);
 namespace Drupal\canvas_view_template\Plugin\Canvas\ComponentSource;
 
 use Drupal\canvas\Attribute\ComponentSource;
-use Drupal\canvas\ComponentSource\ComponentSourceBase;
 use Drupal\canvas\Entity\Component;
-use Drupal\canvas\MissingComponentInputsException;
-use Drupal\canvas\Plugin\Field\FieldType\ComponentTreeItem;
 use Drupal\canvas_view_template\Entity\ViewTemplate;
 use Drupal\canvas_view_template\Preview\ViewTemplatePreviewSelection;
 use Drupal\canvas_view_template\ViewTemplateUsage;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\FieldableEntityInterface;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Render\Markup;
+use Drupal\Core\Security\TrustedCallbackInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\Core\Template\Attribute;
 use Drupal\views\Views;
-use Symfony\Component\Validator\ConstraintViolation;
 use Symfony\Component\Validator\ConstraintViolationList;
 use Symfony\Component\Validator\ConstraintViolationListInterface;
 
@@ -37,9 +36,7 @@ use Symfony\Component\Validator\ConstraintViolationListInterface;
   supportsImplicitInputs: FALSE,
   discovery: FALSE,
 )]
-final class ViewTemplateField extends ComponentSourceBase {
-
-  use ViewTemplateMarkerPreviewTrait;
+final class ViewTemplateField extends ViewTemplateComponentSourceBase implements TrustedCallbackInterface {
 
   public const string SOURCE_PLUGIN_ID = 'canvas_view_template_field';
 
@@ -65,6 +62,11 @@ final class ViewTemplateField extends ComponentSourceBase {
    */
   public const string ELEMENT_NONE = 'none';
 
+  /**
+   * Block-level tags, which a `p`, `span` or heading cannot hold.
+   */
+  private const string BLOCK_MARKUP = '#<(?:address|article|aside|blockquote|details|div|dl|fieldset|figure|footer|form|h[1-6]|header|hr|main|nav|ol|p|pre|section|table|ul)[\s>/]#i';
+
   public const string DEFAULT_ELEMENT = 'div';
 
   public const string LABEL_HIDDEN = 'hidden';
@@ -72,11 +74,6 @@ final class ViewTemplateField extends ComponentSourceBase {
   public const string LABEL_ABOVE = 'above';
 
   public const string LABEL_INLINE = 'inline';
-
-  /**
-   * The key `hydrateComponent()` wraps explicit input under.
-   */
-  private const string EXPLICIT_INPUT_NAME = 'settings';
 
   /**
    * The field requested by the most recently suspended instance.
@@ -123,27 +120,6 @@ final class ViewTemplateField extends ComponentSourceBase {
       self::LABEL_ABOVE => new TranslatableMarkup('Above'),
       self::LABEL_INLINE => new TranslatableMarkup('Inline'),
     ];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function isBroken(): bool {
-    return FALSE;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function determineDefaultFolder(): string {
-    return ViewTemplatePlaceholder::LIBRARY_FOLDER_NAME;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getReferencedPluginClass(): ?string {
-    return NULL;
   }
 
   /**
@@ -201,33 +177,71 @@ final class ViewTemplateField extends ComponentSourceBase {
       '#type' => 'html_tag',
       '#tag' => $settings[self::INPUT_LABEL] === self::LABEL_ABOVE ? 'div' : 'span',
       '#attributes' => ['class' => ['cvt-field__label']],
-      '#value' => $label,
+      'text' => ['#plain_text' => $label],
     ];
     if ($settings[self::INPUT_LABEL] === self::LABEL_INLINE && $label !== '') {
-      // Label and value side by side, even if the value's markup is a block.
+      // A div, whatever the element: it only lays out the label and the value.
       return [
         '#type' => 'html_tag',
-        '#tag' => $element === self::ELEMENT_NONE ? 'div' : $element,
+        '#tag' => 'div',
         '#attributes' => ['class' => ['cvt-field', 'cvt-field--inline']],
         'label' => $label_build,
-        'value' => [
-          '#type' => 'html_tag',
-          '#tag' => 'span',
-          '#attributes' => ['class' => ['cvt-field__value']],
-          'content' => $value,
-        ],
+        'value' => $this->wrapValue($value, $element === self::ELEMENT_NONE ? 'div' : $element, ['cvt-field__value']),
         '#attached' => ['library' => ['canvas_view_template/field']],
       ];
     }
-    $body = $element === self::ELEMENT_NONE ? $value : [
-      '#type' => 'html_tag',
-      '#tag' => $element,
-      'value' => $value,
-    ];
+    $body = $element === self::ELEMENT_NONE ? $value : $this->wrapValue($value, $element);
     if ($settings[self::INPUT_LABEL] === self::LABEL_HIDDEN || $label === '') {
       return $body;
     }
     return ['label' => $label_build, 'body' => $body];
+  }
+
+  /**
+   * Wraps a value in an element, as a `div` if it is a block in a `p`, etc.
+   *
+   * The parser would close a `p`, `span` or heading at the first block inside
+   * it, so the markup is only known once the value is rendered.
+   *
+   * @param array $value
+   *   The value's render array.
+   * @param string $tag
+   *   The chosen element.
+   * @param string[] $classes
+   *   Classes for the element.
+   *
+   * @return array
+   *   A render array.
+   */
+  private function wrapValue(array $value, string $tag, array $classes = []): array {
+    return [
+      '#pre_render' => [[self::class, 'preRenderWrap']],
+      '#tag' => $tag,
+      '#attributes' => $classes === [] ? [] : ['class' => $classes],
+      'value' => $value,
+    ];
+  }
+
+  /**
+   * Render callback: renders the value inside its element.
+   */
+  public static function preRenderWrap(array $element): array {
+    $markup = (string) \Drupal::service('renderer')->render($element['value']);
+    $tag = $element['#tag'];
+    if ($tag !== 'div' && \preg_match(self::BLOCK_MARKUP, $markup) === 1) {
+      $tag = 'div';
+    }
+    $attributes = new Attribute($element['#attributes']);
+    $element['#markup'] = Markup::create('<' . $tag . $attributes . '>' . $markup . '</' . $tag . '>');
+    unset($element['value']);
+    return $element;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function trustedCallbacks(): array {
+    return ['preRenderWrap'];
   }
 
   /**
@@ -266,44 +280,6 @@ final class ViewTemplateField extends ComponentSourceBase {
   }
 
   /**
-   * {@inheritdoc}
-   */
-  public function getExplicitInput(string $uuid, ComponentTreeItem $item, ?FieldableEntityInterface $host_entity = NULL): array {
-    try {
-      return $item->getInputs() ?? $this->getDefaultExplicitInput();
-    }
-    catch (MissingComponentInputsException) {
-      return $this->getDefaultExplicitInput();
-    }
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function hydrateComponent(array $explicit_input, array $slot_definitions, array $active_required_explicit_inputs): array {
-    return [self::EXPLICIT_INPUT_NAME => $explicit_input + $this->getDefaultExplicitInput()];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function inputToClientModel(array $explicit_input): array {
-    return ['resolved' => $explicit_input + $this->getDefaultExplicitInput()];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getClientSideInfo(Component $component): array {
-    return [
-      'build' => $this->renderComponent([], $component->getSlotDefinitions(), $component->uuid(), TRUE),
-      'metadata' => [
-        'slots' => [],
-      ],
-    ];
-  }
-
-  /**
    * The fields to choose from.
    *
    * Order: previewed display, displays using this template, all Views.
@@ -328,12 +304,19 @@ final class ViewTemplateField extends ComponentSourceBase {
         $source = $displays !== [] ? 'using' : 'all';
       }
     }
+    $options = [];
     if ($source === 'all') {
-      foreach (\Drupal::entityTypeManager()->getStorage('view')->loadByProperties(['status' => TRUE]) as $view) {
-        $displays[] = ['view' => (string) $view->id(), 'display' => 'default'];
+      // Raw config: building every View's handlers would be slow on big sites.
+      $config_factory = \Drupal::configFactory();
+      foreach ($config_factory->loadMultiple($config_factory->listAll('views.view.')) as $config) {
+        if (!$config->get('status')) {
+          continue;
+        }
+        foreach ($config->get('display.default.display_options.fields') ?? [] as $id => $field) {
+          $options[(string) $id] ??= (string) (($field['admin_label'] ?? '') ?: ($field['label'] ?? '') ?: $id);
+        }
       }
     }
-    $options = [];
     foreach ($displays as $choice) {
       $view = Views::getView($choice['view']);
       if ($view === NULL || !$view->setDisplay($choice['display'])) {
@@ -407,20 +390,6 @@ final class ViewTemplateField extends ComponentSourceBase {
   /**
    * {@inheritdoc}
    */
-  public function clientModelToInput(string $component_instance_uuid, Component $component, array $client_model, ?FieldableEntityInterface $host_entity, ?ConstraintViolationListInterface $violations = NULL): array {
-    $is_new_instance = $client_model === ['resolved' => []];
-    $resolved = $is_new_instance ? $this->getDefaultExplicitInput() : ($client_model['resolved'] ?? []);
-    $defaults = $this->getDefaultExplicitInput();
-    return [
-      self::INPUT_FIELD => $resolved[self::INPUT_FIELD] ?? $defaults[self::INPUT_FIELD],
-      self::INPUT_ELEMENT => $resolved[self::INPUT_ELEMENT] ?? $defaults[self::INPUT_ELEMENT],
-      self::INPUT_LABEL => $resolved[self::INPUT_LABEL] ?? $defaults[self::INPUT_LABEL],
-    ];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function validateComponentInput(array $inputValues, string $component_instance_uuid, ?FieldableEntityInterface $entity): ConstraintViolationListInterface {
     $violations = new ConstraintViolationList();
     $defaults = $this->getDefaultExplicitInput();
@@ -437,28 +406,6 @@ final class ViewTemplateField extends ComponentSourceBase {
       $violations->add($this->violation($this->t('Choose how to show the label.'), $inputValues, self::INPUT_LABEL, $label));
     }
     return $violations;
-  }
-
-  /**
-   * Builds a violation for one setting.
-   */
-  private function violation(TranslatableMarkup $message, array $root, string $path, mixed $value): ConstraintViolation {
-    return new ConstraintViolation((string) $message, NULL, [], $root, $path, $value);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function checkRequirements(): void {
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function calculateDependencies(): array {
-    return [
-      'module' => ['canvas_view_template'],
-    ];
   }
 
   /**

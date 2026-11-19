@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\canvas_view_template\Kernel;
 
-use Drupal\canvas\Entity\Component;
-use Drupal\canvas\Entity\PageVariant;
-use Drupal\canvas\Plugin\Canvas\ComponentSource\Marker;
 use Drupal\canvas\Plugin\DisplayVariant\CanvasPageVariant;
 use Drupal\canvas_view_template\Entity\ViewTemplate;
 use Drupal\canvas_view_template\EventSubscriber\ViewTemplatePageVariantSelectorSubscriber;
@@ -110,7 +107,7 @@ final class ViewTemplatePageVariantSelectorSubscriberTest extends ViewTemplateKe
     $this->createStyledView('override_view', 'full_override');
     $template = ViewTemplate::create(['id' => 'preview_pt', 'label' => 'Preview']);
     $template->save();
-    $route = new Route('/canvas/api/v0/layout/view_template/{entity}');
+    $route = new Route('/canvas/api/v0/layout/canvas_view_template/{entity}');
     $route_match = new RouteMatch('canvas.api.layout.get', $route, ['entity' => $template], ['entity' => 'preview_pt']);
     $dispatch = function () use ($route_match): PageDisplayVariantSelectionEvent {
       $event = new PageDisplayVariantSelectionEvent('initial_plugin_id', $route_match);
@@ -175,44 +172,6 @@ final class ViewTemplatePageVariantSelectorSubscriberTest extends ViewTemplateKe
         ],
       ],
     ])->save();
-  }
-
-  /**
-   * Creates a valid `PageVariant`, which needs one "Page content" marker.
-   */
-  private function createPageVariant(string $id, string $label): PageVariant {
-    $marker_version = '3b12c0b99a6caecc';
-    if (Component::load(Marker::PAGE_CONTENT_COMPONENT_ID) === NULL) {
-      Component::create([
-        'id' => Marker::PAGE_CONTENT_COMPONENT_ID,
-        'label' => 'Page content',
-        'provider' => 'canvas',
-        'source' => Marker::SOURCE_PLUGIN_ID,
-        'source_local_id' => Marker::PAGE_CONTENT_LOCAL_ID,
-        'active_version' => $marker_version,
-        'versioned_properties' => [
-          'active' => [
-            'settings' => [],
-            'fallback_metadata' => ['slot_definitions' => []],
-          ],
-        ],
-        'dependencies' => ['enforced' => ['module' => ['canvas']]],
-      ])->save();
-    }
-    $page_variant = PageVariant::create([
-      'id' => $id,
-      'label' => $label,
-      'component_tree' => [
-        [
-          'uuid' => \Drupal::service('uuid')->generate(),
-          'component_id' => Marker::PAGE_CONTENT_COMPONENT_ID,
-          'component_version' => $marker_version,
-          'inputs' => [],
-        ],
-      ],
-    ]);
-    $page_variant->save();
-    return $page_variant;
   }
 
 }

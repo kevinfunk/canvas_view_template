@@ -9,7 +9,7 @@ use Drupal\canvas_view_template\Entity\ViewTemplate;
 use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplatePlaceholder;
 use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateRepeater;
 use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateItemLink;
-use Drupal\canvas_view_template\Render\ViewTemplateRenderer;
+use Drupal\canvas_view_template\Render\ViewRenderData;
 use Drupal\Core\Form\FormState;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
@@ -117,7 +117,7 @@ final class ViewTemplateItemLinkTest extends ViewTemplateKernelTestBase {
    *   The page of each row.
    */
   private function renderTemplate(ViewTemplate $template, array $rows, array $urls): string {
-    $result = $this->container->get(ViewTemplateRenderer::class)->render($template, '', '', '', $rows, 0, [], [], [], [], $urls);
+    $result = $this->renderWithData($template, new ViewRenderData(rowRenders: $rows, itemUrls: $urls));
     return (string) $this->renderer->renderInIsolation($result);
   }
 

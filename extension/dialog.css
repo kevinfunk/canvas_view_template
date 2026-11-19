@@ -2,7 +2,7 @@
  * Dialogs and row menu for the "View templates" tool. They are added to the
  * Canvas editor's page (not the 296px iframe), so they cover the whole window.
  * Everything is prefixed `cvt-` to avoid collisions with Canvas's styles.
- * Sizes follow Canvas's (Radix Themes), compared with Canvas 1.12.0; see the
+ * Sizes follow Canvas's (Radix Themes), compared with Canvas 1.13.0; see the
  * note on the menu below.
  */
 .cvt-overlay {
@@ -107,7 +107,7 @@
  * accent blue, scaling 100%, medium radius (`rt-BaseMenu*` in Canvas's compiled
  * stylesheet). The Radix tokens used are written out below.
  *
- * Compared with Canvas 1.12.0. To re-check after a Canvas update, compare with
+ * Compared with Canvas 1.13.0. To re-check after a Canvas update, compare with
  * those rules and the `--accent-9`, `--red-9`, `--slate-a*` and `--space-*` tokens.
  */
 .cvt-menu {
@@ -169,7 +169,7 @@
   background: none;
   color: inherit;
   font: inherit;
-  text-align: left;
+  text-align: start;
   white-space: nowrap;
   outline: none;
   cursor: default;
@@ -185,4 +185,8 @@
 .cvt-menu__item--danger:focus-visible {
   background-color: var(--cvt-red-9);
   color: #fff;
+}
+/* Forced colours drop the background, so mark the focused item by outline. */
+@media (forced-colors: active) {
+  .cvt-menu__item:focus-visible { outline: 2px solid Highlight; outline-offset: -2px; }
 }

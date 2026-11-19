@@ -5,15 +5,11 @@ declare(strict_types=1);
 namespace Drupal\canvas_view_template\Plugin\Canvas\ComponentSource;
 
 use Drupal\canvas\Attribute\ComponentSource;
-use Drupal\canvas\ComponentSource\ComponentSourceBase;
 use Drupal\canvas\Entity\Component;
-use Drupal\canvas\MissingComponentInputsException;
-use Drupal\canvas\Plugin\Field\FieldType\ComponentTreeItem;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\FieldableEntityInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
-use Symfony\Component\Validator\ConstraintViolation;
 use Symfony\Component\Validator\ConstraintViolationList;
 use Symfony\Component\Validator\ConstraintViolationListInterface;
 
@@ -34,9 +30,7 @@ use Symfony\Component\Validator\ConstraintViolationListInterface;
   supportsImplicitInputs: FALSE,
   discovery: FALSE,
 )]
-final class ViewTemplateFeedIcons extends ComponentSourceBase {
-
-  use ViewTemplateMarkerPreviewTrait;
+final class ViewTemplateFeedIcons extends ViewTemplateComponentSourceBase {
 
   public const string SOURCE_PLUGIN_ID = 'canvas_view_template_feed_icons';
 
@@ -52,11 +46,6 @@ final class ViewTemplateFeedIcons extends ComponentSourceBase {
   public const string LABEL_HIDDEN = 'hidden';
 
   /**
-   * The key `hydrateComponent()` wraps explicit input under.
-   */
-  private const string EXPLICIT_INPUT_NAME = 'settings';
-
-  /**
    * The allowed "Label" values, with their labels.
    *
    * @return array<string, \Drupal\Core\StringTranslation\TranslatableMarkup>
@@ -67,27 +56,6 @@ final class ViewTemplateFeedIcons extends ComponentSourceBase {
       self::LABEL_VISIBLE => new TranslatableMarkup('Visible'),
       self::LABEL_HIDDEN => new TranslatableMarkup('Hidden'),
     ];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function isBroken(): bool {
-    return FALSE;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function determineDefaultFolder(): string {
-    return ViewTemplatePlaceholder::LIBRARY_FOLDER_NAME;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getReferencedPluginClass(): ?string {
-    return NULL;
   }
 
   /**
@@ -157,44 +125,6 @@ final class ViewTemplateFeedIcons extends ComponentSourceBase {
   /**
    * {@inheritdoc}
    */
-  public function getExplicitInput(string $uuid, ComponentTreeItem $item, ?FieldableEntityInterface $host_entity = NULL): array {
-    try {
-      return $item->getInputs() ?? $this->getDefaultExplicitInput();
-    }
-    catch (MissingComponentInputsException) {
-      return $this->getDefaultExplicitInput();
-    }
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function hydrateComponent(array $explicit_input, array $slot_definitions, array $active_required_explicit_inputs): array {
-    return [self::EXPLICIT_INPUT_NAME => $explicit_input + $this->getDefaultExplicitInput()];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function inputToClientModel(array $explicit_input): array {
-    return ['resolved' => $explicit_input + $this->getDefaultExplicitInput()];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getClientSideInfo(Component $component): array {
-    return [
-      'build' => $this->renderComponent([], $component->getSlotDefinitions(), $component->uuid(), TRUE),
-      'metadata' => [
-        'slots' => [],
-      ],
-    ];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function buildComponentInstanceForm(
     array $form,
     FormStateInterface $form_state,
@@ -219,44 +149,13 @@ final class ViewTemplateFeedIcons extends ComponentSourceBase {
   /**
    * {@inheritdoc}
    */
-  public function clientModelToInput(string $component_instance_uuid, Component $component, array $client_model, ?FieldableEntityInterface $host_entity, ?ConstraintViolationListInterface $violations = NULL): array {
-    $is_new_instance = $client_model === ['resolved' => []];
-    $resolved = $is_new_instance ? $this->getDefaultExplicitInput() : ($client_model['resolved'] ?? []);
-    return [self::INPUT_LABEL => $resolved[self::INPUT_LABEL] ?? self::LABEL_VISIBLE];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function validateComponentInput(array $inputValues, string $component_instance_uuid, ?FieldableEntityInterface $entity): ConstraintViolationListInterface {
     $violations = new ConstraintViolationList();
     $label = $inputValues[self::INPUT_LABEL] ?? self::LABEL_VISIBLE;
     if (!\is_string($label) || !\array_key_exists($label, self::labelOptions())) {
-      $violations->add(new ConstraintViolation(
-        (string) $this->t('Choose whether to show the label.'),
-        NULL,
-        [],
-        $inputValues,
-        self::INPUT_LABEL,
-        $label,
-      ));
+      $violations->add($this->violation($this->t('Choose whether to show the label.'), $inputValues, self::INPUT_LABEL, $label));
     }
     return $violations;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function checkRequirements(): void {
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function calculateDependencies(): array {
-    return [
-      'module' => ['canvas_view_template'],
-    ];
   }
 
   /**

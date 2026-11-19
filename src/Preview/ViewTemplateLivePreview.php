@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Drupal\canvas_view_template\Preview;
 
-use Drupal\canvas\AutoSave\AutoSaveManager;
 use Drupal\canvas_view_template\Entity\ViewTemplate;
 use Drupal\canvas_view_template\Render\ViewTemplateRenderer;
+use Drupal\canvas_view_template\ViewTemplateDrafts;
 use Drupal\Core\Cache\CacheableMetadata;
 
 /**
@@ -21,7 +21,7 @@ final class ViewTemplateLivePreview {
     private readonly ViewTemplatePreviewSelection $selection,
     private readonly ViewPreviewBuilder $builder,
     private readonly ViewTemplateRenderer $renderer,
-    private readonly AutoSaveManager $autoSaveManager,
+    private readonly ViewTemplateDrafts $drafts,
   ) {}
 
   /**
@@ -34,26 +34,13 @@ final class ViewTemplateLivePreview {
     if ($choice === NULL) {
       return NULL;
     }
-    $autosave = $this->autoSaveManager->getAutoSaveEntity($template);
-    $draft = !$autosave->isEmpty() && $autosave->entity instanceof ViewTemplate ? $autosave->entity : $template;
+    $draft = $this->drafts->latest($template);
     $uses_summary = \in_array(ViewTemplateRenderer::VIEW_SUMMARY_COMPONENT_ID, \array_column($draft->getComponentTree()->getValue(), 'component_id'), TRUE);
     $pieces = $this->builder->build($choice['view'], $choice['display'], $uses_summary);
     if ($pieces === NULL) {
       return NULL;
     }
-    $build = $this->renderer->render(
-      $draft,
-      $pieces['rows'],
-      $pieces['exposed'],
-      $pieces['pager'],
-      $pieces['row_renders'],
-      $pieces['current_page'],
-      $pieces['areas'],
-      $pieces['field_data'],
-      $pieces['summary'],
-      $pieces['facts'],
-      $pieces['item_urls'],
-    );
+    $build = $this->renderer->render($draft, $pieces['data']);
     // Private, per user: both the choice and the draft are.
     CacheableMetadata::createFromRenderArray($build)
       ->merge($pieces['cacheability'])

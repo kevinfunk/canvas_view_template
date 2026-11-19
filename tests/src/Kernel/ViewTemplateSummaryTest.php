@@ -8,7 +8,7 @@ use Drupal\canvas\Entity\Component;
 use Drupal\canvas_view_template\Entity\ViewTemplate;
 use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateSummary;
 use Drupal\canvas_view_template\Render\ViewResultSummary;
-use Drupal\canvas_view_template\Render\ViewTemplateRenderer;
+use Drupal\canvas_view_template\Render\ViewRenderData;
 use Drupal\Core\Form\FormState;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
@@ -74,7 +74,7 @@ final class ViewTemplateSummaryTest extends ViewTemplateKernelTestBase {
       ],
       ],
     ]);
-    $result = $this->container->get(ViewTemplateRenderer::class)->render($view_template, [], '', '', [], 0, [], [], $tokens);
+    $result = $this->renderWithData($view_template, new ViewRenderData(summary: $tokens));
     return (string) $this->renderer->renderInIsolation($result);
   }
 

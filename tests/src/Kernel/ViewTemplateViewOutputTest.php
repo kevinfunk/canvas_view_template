@@ -109,6 +109,12 @@ final class ViewTemplateViewOutputTest extends ViewTemplateKernelTestBase {
 
     // The wrapper Views' AJAX needs, from core's own template.
     self::assertMatchesRegularExpression('/<div[^>]*class="[^"]*js-view-dom-id-[^"]*"/', $html);
+    // And the standard view classes themes and site CSS target.
+    self::assertSame(1, \preg_match('/<div[^>]*class="([^"]*js-view-dom-id-[^"]*)"/', $html, $match));
+    $classes = \explode(' ', $match[1]);
+    foreach (['view', 'view-output-test-view', 'view-id-output_test_view', 'view-display-id-default'] as $class) {
+      self::assertContains($class, $classes);
+    }
     // The template places only "View rows", so the header and footer the View
     // has are not shown, but its "no results" text is, in place of the rows.
     self::assertStringContainsString('NO_RESULTS_TEXT', $html);

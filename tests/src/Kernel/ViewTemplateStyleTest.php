@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\canvas_view_template\Kernel;
 
-use Drupal\canvas\Entity\Component;
-use Drupal\canvas\Entity\PageVariant;
-use Drupal\canvas\Plugin\Canvas\ComponentSource\Marker;
 use Drupal\canvas_view_template\Entity\ViewTemplate;
 use Drupal\canvas_view_template\Plugin\views\style\ViewTemplateStyle;
 use Drupal\Core\Form\FormState;
@@ -145,7 +142,7 @@ final class ViewTemplateStyleTest extends ViewTemplateKernelTestBase {
 
     // The JS gets an edit URL for every template, to follow the select.
     $edit_urls = $form['#attached']['drupalSettings']['canvasViewTemplate']['editUrls'];
-    self::assertSame('/canvas/editor/view_template/vt_other', $edit_urls['vt_other']);
+    self::assertSame('/canvas/editor/canvas_view_template/vt_other', $edit_urls['vt_other']);
     self::assertContains('canvas_view_template/style_options', $form['#attached']['library']);
     self::assertArrayHasKey('data-cvt-template-select', $form[ViewTemplateStyle::OPTION_KEY]['#attributes']);
 
@@ -156,7 +153,7 @@ final class ViewTemplateStyleTest extends ViewTemplateKernelTestBase {
     $edit = $form['template_links']['edit'];
     self::assertFalse($edit['#attributes']['hidden']);
     self::assertSame('canvas.boot.entity', $edit['link']['#url']->getRouteName());
-    self::assertSame(['entity_type' => 'view_template', 'entity' => 'vt_link'], $edit['link']['#url']->getRouteParameters());
+    self::assertSame(['entity_type' => 'canvas_view_template', 'entity' => 'vt_link'], $edit['link']['#url']->getRouteParameters());
     self::assertSame('VT Link', (string) $this->style->summaryTitle());
   }
 
@@ -188,45 +185,6 @@ final class ViewTemplateStyleTest extends ViewTemplateKernelTestBase {
     foreach ($dependencies as $items) {
       self::assertNotContains('canvas.page_variant.' . ViewTemplateStyle::NO_PAGE_VARIANT_OPTION_VALUE, $items);
     }
-  }
-
-  /**
-   * Creates a valid `PageVariant`, which needs one "Page content" marker.
-   */
-  private function createPageVariant(string $id, string $label): PageVariant {
-    // Mirrors config/install/canvas.component.marker.page_content.yml.
-    $marker_version = '3b12c0b99a6caecc';
-    if (Component::load(Marker::PAGE_CONTENT_COMPONENT_ID) === NULL) {
-      Component::create([
-        'id' => Marker::PAGE_CONTENT_COMPONENT_ID,
-        'label' => 'Page content',
-        'provider' => 'canvas',
-        'source' => Marker::SOURCE_PLUGIN_ID,
-        'source_local_id' => Marker::PAGE_CONTENT_LOCAL_ID,
-        'active_version' => $marker_version,
-        'versioned_properties' => [
-          'active' => [
-            'settings' => [],
-            'fallback_metadata' => ['slot_definitions' => []],
-          ],
-        ],
-        'dependencies' => ['enforced' => ['module' => ['canvas']]],
-      ])->save();
-    }
-    $page_variant = PageVariant::create([
-      'id' => $id,
-      'label' => $label,
-      'component_tree' => [
-        [
-          'uuid' => \Drupal::service('uuid')->generate(),
-          'component_id' => Marker::PAGE_CONTENT_COMPONENT_ID,
-          'component_version' => $marker_version,
-          'inputs' => [],
-        ],
-      ],
-    ]);
-    $page_variant->save();
-    return $page_variant;
   }
 
 }

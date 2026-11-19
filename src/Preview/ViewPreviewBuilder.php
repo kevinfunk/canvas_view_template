@@ -5,10 +5,7 @@ declare(strict_types=1);
 namespace Drupal\canvas_view_template\Preview;
 
 use Drupal\Core\Cache\CacheableMetadata;
-use Drupal\canvas_view_template\Render\ViewConditions;
-use Drupal\canvas_view_template\Render\ViewFieldRenders;
-use Drupal\canvas_view_template\Render\ViewResultSummary;
-use Drupal\canvas_view_template\Render\ViewItemUrls;
+use Drupal\canvas_view_template\Render\ViewRenderDataCollector;
 use Drupal\views\Views;
 
 /**
@@ -32,8 +29,8 @@ final class ViewPreviewBuilder {
    * @param bool $count_total
    *   Whether to count all results even with a pager that does not.
    *
-   * @return array{rows: array|string, exposed: array|string, pager: array|string, row_renders: array, field_data: array, summary: array, facts: array<string, bool>, item_urls: array<int, string|null>, current_page: int, areas: array, cacheability: \Drupal\Core\Cache\CacheableMetadata}|null
-   *   The pieces to render a view template with, or NULL.
+   * @return array{data: \Drupal\canvas_view_template\Render\ViewRenderData, cacheability: \Drupal\Core\Cache\CacheableMetadata}|null
+   *   The data to render a view template with, and its cacheability, or NULL.
    */
   public function build(string $view_id, string $display_id, bool $count_total = FALSE): ?array {
     $view = Views::getView($view_id);
@@ -55,40 +52,10 @@ final class ViewPreviewBuilder {
     }
     $element = $view->display_handler->elementPreRender($element);
 
-    $areas = [];
-    foreach (['header', 'footer', 'empty', 'more', 'feed_icons', 'attachment_before', 'attachment_after'] as $key) {
-      if (!empty($element["#$key"])) {
-        $areas[$key] = $element["#$key"];
-      }
-    }
-    $title = $view->getTitle();
-    if (\is_string($title) && $title !== '') {
-      $areas['title'] = ['#plain_text' => $title];
-    }
-
-    $row_renders = [];
-    if ($view->rowPlugin) {
-      foreach ($view->result as $row) {
-        $row_renders[] = $view->rowPlugin->render($row);
-      }
-    }
-
     $cacheability = CacheableMetadata::createFromRenderArray($element)
       ->addCacheableDependency($view->storage);
-    $item_urls = ViewItemUrls::collect($view, $cacheability);
-    return [
-      'rows' => $element['#rows'] ?? [],
-      'exposed' => $element['#exposed'] ?? [],
-      'pager' => $element['#pager'] ?? [],
-      'row_renders' => $row_renders,
-      'field_data' => ViewFieldRenders::collect($view),
-      'summary' => ViewResultSummary::collect($view),
-      'facts' => ViewConditions::collect($view),
-      'item_urls' => $item_urls,
-      'current_page' => $view->getCurrentPage() ?? 0,
-      'areas' => $areas,
-      'cacheability' => $cacheability,
-    ];
+    $data = ViewRenderDataCollector::collect($view, $element, '#', NULL, $cacheability);
+    return ['data' => $data, 'cacheability' => $cacheability];
   }
 
 }

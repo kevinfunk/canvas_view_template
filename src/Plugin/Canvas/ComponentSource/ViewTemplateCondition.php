@@ -5,18 +5,13 @@ declare(strict_types=1);
 namespace Drupal\canvas_view_template\Plugin\Canvas\ComponentSource;
 
 use Drupal\canvas\Attribute\ComponentSource;
-use Drupal\canvas\ComponentSource\ComponentSourceBase;
 use Drupal\canvas\ComponentSource\ComponentSourceWithSlotsInterface;
 use Drupal\canvas\Entity\Component;
-use Drupal\canvas\MissingComponentInputsException;
-use Drupal\canvas\Plugin\Field\FieldType\ComponentTreeItem;
 use Drupal\canvas_view_template\Render\ViewConditions;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\FieldableEntityInterface;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Render\Markup;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
-use Symfony\Component\Validator\ConstraintViolation;
 use Symfony\Component\Validator\ConstraintViolationList;
 use Symfony\Component\Validator\ConstraintViolationListInterface;
 
@@ -37,9 +32,7 @@ use Symfony\Component\Validator\ConstraintViolationListInterface;
   supportsImplicitInputs: FALSE,
   discovery: FALSE,
 )]
-final class ViewTemplateCondition extends ComponentSourceBase implements ComponentSourceWithSlotsInterface {
-
-  use ViewTemplateMarkerPreviewTrait;
+final class ViewTemplateCondition extends ViewTemplateComponentSourceBase implements ComponentSourceWithSlotsInterface {
 
   public const string SOURCE_PLUGIN_ID = 'canvas_view_template_condition';
 
@@ -54,44 +47,6 @@ final class ViewTemplateCondition extends ComponentSourceBase implements Compone
    * The explicit input key for the condition.
    */
   public const string INPUT_CONDITION = 'condition';
-
-  /**
-   * The key `hydrateComponent()` wraps explicit input under.
-   */
-  private const string EXPLICIT_INPUT_NAME = 'settings';
-
-  /**
-   * The tree UUID of the instance most recently suspended for rendering.
-   */
-  protected ?string $currentComponentUuid = NULL;
-
-  /**
-   * The tree UUID of the suspended instance.
-   */
-  public function getCurrentComponentUuid(): ?string {
-    return $this->currentComponentUuid;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function isBroken(): bool {
-    return FALSE;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function determineDefaultFolder(): string {
-    return ViewTemplatePlaceholder::LIBRARY_FOLDER_NAME;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getReferencedPluginClass(): ?string {
-    return NULL;
-  }
 
   /**
    * {@inheritdoc}
@@ -121,26 +76,7 @@ final class ViewTemplateCondition extends ComponentSourceBase implements Compone
    * {@inheritdoc}
    */
   public function setSlots(array &$build, array $slots): void {
-    // Unflagged means the renderer resumed us with `[]` (condition not met).
-    if (empty($build['#cvt_show_slot'])) {
-      return;
-    }
-    $slot_build = $slots[self::SLOT_NAME] ?? [];
-    if (empty($build['#canvas_is_preview'])) {
-      $build[self::SLOT_NAME] = $slot_build;
-      return;
-    }
-    // Editor: the slot-marker HTML comments must sit inside a real wrapper.
-    $uuid = $build['#canvas_component_uuid'] ?? NULL;
-    if (\is_string($uuid)) {
-      $slot_build['#prefix'] = Markup::create(\sprintf('<!-- canvas-slot-start-%s/%s -->', $uuid, self::SLOT_NAME));
-      $slot_build['#suffix'] = Markup::create(\sprintf('<!-- canvas-slot-end-%s/%s -->', $uuid, self::SLOT_NAME));
-    }
-    $build[self::SLOT_NAME] = [
-      '#type' => 'container',
-      '#attributes' => ['class' => ['cvt-marker__slot']],
-      'content' => $slot_build,
-    ];
+    $this->setFlaggedSlot($build, $slots, self::SLOT_NAME);
   }
 
   /**
@@ -148,8 +84,7 @@ final class ViewTemplateCondition extends ComponentSourceBase implements Compone
    */
   public function renderComponent(array $inputs, array $slot_definitions, string $componentUuid, bool $isPreview): array {
     if (\Fiber::getCurrent() !== NULL) {
-      $this->currentComponentUuid = $componentUuid;
-      $injected = \Fiber::suspend($this);
+      $injected = $this->suspendFor($componentUuid);
       if (\is_array($injected)) {
         return $injected;
       }
@@ -196,51 +131,6 @@ final class ViewTemplateCondition extends ComponentSourceBase implements Compone
   /**
    * {@inheritdoc}
    */
-  public function getExplicitInput(string $uuid, ComponentTreeItem $item, ?FieldableEntityInterface $host_entity = NULL): array {
-    try {
-      return $item->getInputs() ?? $this->getDefaultExplicitInput();
-    }
-    catch (MissingComponentInputsException) {
-      return $this->getDefaultExplicitInput();
-    }
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function hydrateComponent(array $explicit_input, array $slot_definitions, array $active_required_explicit_inputs): array {
-    $hydrated = [self::EXPLICIT_INPUT_NAME => $explicit_input + $this->getDefaultExplicitInput()];
-    // The `slots` key is what makes Canvas call ::setSlots().
-    if (!empty($slot_definitions)) {
-      $hydrated['slots'] = \array_map(fn(array $slot): mixed => $slot['examples'][0] ?? '', $slot_definitions);
-    }
-    // @phpstan-ignore return.type
-    return $hydrated;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function inputToClientModel(array $explicit_input): array {
-    return ['resolved' => $explicit_input + $this->getDefaultExplicitInput()];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getClientSideInfo(Component $component): array {
-    // @phpstan-ignore return.type
-    return [
-      'build' => $this->renderComponent([], $component->getSlotDefinitions(), $component->uuid(), TRUE),
-      'metadata' => [
-        'slots' => $this->getSlotDefinitions(),
-      ],
-    ];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function buildComponentInstanceForm(
     array $form,
     FormStateInterface $form_state,
@@ -265,44 +155,13 @@ final class ViewTemplateCondition extends ComponentSourceBase implements Compone
   /**
    * {@inheritdoc}
    */
-  public function clientModelToInput(string $component_instance_uuid, Component $component, array $client_model, ?FieldableEntityInterface $host_entity, ?ConstraintViolationListInterface $violations = NULL): array {
-    $is_new_instance = $client_model === ['resolved' => []];
-    $resolved = $is_new_instance ? $this->getDefaultExplicitInput() : ($client_model['resolved'] ?? []);
-    return [self::INPUT_CONDITION => $resolved[self::INPUT_CONDITION] ?? ViewConditions::DEFAULT];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function validateComponentInput(array $inputValues, string $component_instance_uuid, ?FieldableEntityInterface $entity): ConstraintViolationListInterface {
     $violations = new ConstraintViolationList();
     $condition = $inputValues[self::INPUT_CONDITION] ?? ViewConditions::DEFAULT;
     if (!\is_string($condition) || !\array_key_exists($condition, ViewConditions::options())) {
-      $violations->add(new ConstraintViolation(
-        (string) $this->t('Choose a condition.'),
-        NULL,
-        [],
-        $inputValues,
-        self::INPUT_CONDITION,
-        $condition,
-      ));
+      $violations->add($this->violation($this->t('Choose a condition.'), $inputValues, self::INPUT_CONDITION, $condition));
     }
     return $violations;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function checkRequirements(): void {
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function calculateDependencies(): array {
-    return [
-      'module' => ['canvas_view_template'],
-    ];
   }
 
   /**

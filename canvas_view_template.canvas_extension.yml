@@ -9,4 +9,4 @@ view_templates:
   type: 'page'
   api_version: "1.0"
   permissions:
-    - administer view template
+    - administer view templates

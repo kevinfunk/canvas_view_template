@@ -5,15 +5,11 @@ declare(strict_types=1);
 namespace Drupal\canvas_view_template\Plugin\Canvas\ComponentSource;
 
 use Drupal\canvas\Attribute\ComponentSource;
-use Drupal\canvas\ComponentSource\ComponentSourceBase;
 use Drupal\canvas\Entity\Component;
-use Drupal\canvas\MissingComponentInputsException;
-use Drupal\canvas\Plugin\Field\FieldType\ComponentTreeItem;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\FieldableEntityInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
-use Symfony\Component\Validator\ConstraintViolation;
 use Symfony\Component\Validator\ConstraintViolationList;
 use Symfony\Component\Validator\ConstraintViolationListInterface;
 
@@ -34,9 +30,7 @@ use Symfony\Component\Validator\ConstraintViolationListInterface;
   supportsImplicitInputs: FALSE,
   discovery: FALSE,
 )]
-final class ViewTemplateTitle extends ComponentSourceBase {
-
-  use ViewTemplateMarkerPreviewTrait;
+final class ViewTemplateTitle extends ViewTemplateComponentSourceBase {
 
   public const string SOURCE_PLUGIN_ID = 'canvas_view_template_title';
 
@@ -58,11 +52,6 @@ final class ViewTemplateTitle extends ComponentSourceBase {
   public const string DEFAULT_ELEMENT = 'h2';
 
   /**
-   * The key `hydrateComponent()` wraps explicit input under.
-   */
-  private const string EXPLICIT_INPUT_NAME = 'settings';
-
-  /**
    * The allowed "Element" values, with their labels.
    *
    * @return array<string, \Drupal\Core\StringTranslation\TranslatableMarkup>
@@ -78,27 +67,6 @@ final class ViewTemplateTitle extends ComponentSourceBase {
       'h6' => new TranslatableMarkup('Heading 6'),
       self::ELEMENT_NONE => new TranslatableMarkup('Plain text (no element)'),
     ];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function isBroken(): bool {
-    return FALSE;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function determineDefaultFolder(): string {
-    return ViewTemplatePlaceholder::LIBRARY_FOLDER_NAME;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getReferencedPluginClass(): ?string {
-    return NULL;
   }
 
   /**
@@ -163,44 +131,6 @@ final class ViewTemplateTitle extends ComponentSourceBase {
   /**
    * {@inheritdoc}
    */
-  public function getExplicitInput(string $uuid, ComponentTreeItem $item, ?FieldableEntityInterface $host_entity = NULL): array {
-    try {
-      return $item->getInputs() ?? $this->getDefaultExplicitInput();
-    }
-    catch (MissingComponentInputsException) {
-      return $this->getDefaultExplicitInput();
-    }
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function hydrateComponent(array $explicit_input, array $slot_definitions, array $active_required_explicit_inputs): array {
-    return [self::EXPLICIT_INPUT_NAME => $explicit_input + $this->getDefaultExplicitInput()];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function inputToClientModel(array $explicit_input): array {
-    return ['resolved' => $explicit_input + $this->getDefaultExplicitInput()];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getClientSideInfo(Component $component): array {
-    return [
-      'build' => $this->renderComponent([], $component->getSlotDefinitions(), $component->uuid(), TRUE),
-      'metadata' => [
-        'slots' => [],
-      ],
-    ];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function buildComponentInstanceForm(
     array $form,
     FormStateInterface $form_state,
@@ -225,44 +155,13 @@ final class ViewTemplateTitle extends ComponentSourceBase {
   /**
    * {@inheritdoc}
    */
-  public function clientModelToInput(string $component_instance_uuid, Component $component, array $client_model, ?FieldableEntityInterface $host_entity, ?ConstraintViolationListInterface $violations = NULL): array {
-    $is_new_instance = $client_model === ['resolved' => []];
-    $resolved = $is_new_instance ? $this->getDefaultExplicitInput() : ($client_model['resolved'] ?? []);
-    return [self::INPUT_ELEMENT => $resolved[self::INPUT_ELEMENT] ?? self::DEFAULT_ELEMENT];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function validateComponentInput(array $inputValues, string $component_instance_uuid, ?FieldableEntityInterface $entity): ConstraintViolationListInterface {
     $violations = new ConstraintViolationList();
     $element = $inputValues[self::INPUT_ELEMENT] ?? self::DEFAULT_ELEMENT;
     if (!\is_string($element) || !\array_key_exists($element, self::elementOptions())) {
-      $violations->add(new ConstraintViolation(
-        (string) $this->t('Choose a heading level or plain text.'),
-        NULL,
-        [],
-        $inputValues,
-        self::INPUT_ELEMENT,
-        $element,
-      ));
+      $violations->add($this->violation($this->t('Choose a heading level or plain text.'), $inputValues, self::INPUT_ELEMENT, $element));
     }
     return $violations;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function checkRequirements(): void {
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function calculateDependencies(): array {
-    return [
-      'module' => ['canvas_view_template'],
-    ];
   }
 
   /**

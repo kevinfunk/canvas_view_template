@@ -11,6 +11,7 @@ use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateFeedIc
 use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplatePlaceholder;
 use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateTitle;
 use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateRepeater;
+use Drupal\canvas_view_template\Render\ViewRenderData;
 use Drupal\canvas_view_template\Render\ViewTemplateRenderer;
 use Drupal\Core\Render\BubbleableMetadata;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -37,12 +38,7 @@ final class ViewTemplateRendererTest extends ViewTemplateKernelTestBase {
       ],
     ]);
 
-    $result = $this->container->get(ViewTemplateRenderer::class)->render(
-      $view_template,
-      ['#markup' => 'THE_ROWS'],
-      ['#markup' => 'THE_EXPOSED_FORM'],
-      ['#markup' => 'THE_PAGER'],
-    );
+    $result = $this->renderWithData($view_template, new ViewRenderData(rows: ['#markup' => 'THE_ROWS'], exposed: ['#markup' => 'THE_EXPOSED_FORM'], pager: ['#markup' => 'THE_PAGER']));
     $rendered = (string) $this->renderer->renderInIsolation($result);
 
     self::assertStringContainsString('THE_ROWS', $rendered);
@@ -63,7 +59,7 @@ final class ViewTemplateRendererTest extends ViewTemplateKernelTestBase {
     ]);
     $view_template->save();
 
-    $result = $this->container->get(ViewTemplateRenderer::class)->render($view_template, ['#markup' => 'ROWS'], '', '');
+    $result = $this->renderWithData($view_template, new ViewRenderData(rows: ['#markup' => 'ROWS']));
     $this->renderer->renderInIsolation($result);
 
     self::assertContains(
@@ -373,7 +369,7 @@ final class ViewTemplateRendererTest extends ViewTemplateKernelTestBase {
    * Renders a template with the given rows and Views areas.
    */
   private function renderWithAreas(ViewTemplate $view_template, array|string $rows, array $areas): string {
-    $result = $this->container->get(ViewTemplateRenderer::class)->render($view_template, $rows, '', '', [], 0, $areas);
+    $result = $this->renderWithData($view_template, new ViewRenderData(rows: $rows, areas: $areas));
     return (string) $this->renderer->renderInIsolation($result);
   }
 
@@ -410,13 +406,7 @@ final class ViewTemplateRendererTest extends ViewTemplateKernelTestBase {
       ],
     ]);
 
-    $result = $this->container->get(ViewTemplateRenderer::class)->render(
-      $view_template,
-      '',
-      '',
-      '',
-      ['ROW_A', 'ROW_B', 'ROW_C'],
-    );
+    $result = $this->renderWithData($view_template, new ViewRenderData(rowRenders: ['ROW_A', 'ROW_B', 'ROW_C']));
     $rendered = (string) $this->renderer->renderInIsolation($result);
 
     self::assertStringContainsString('ROW_A', $rendered);
@@ -435,13 +425,7 @@ final class ViewTemplateRendererTest extends ViewTemplateKernelTestBase {
       'component_tree' => [$repeater_item, $item_item],
     ]);
 
-    $result = $this->container->get(ViewTemplateRenderer::class)->render(
-      $view_template,
-      '',
-      '',
-      '',
-      ['ROW_A', 'ROW_B', 'ROW_C'],
-    );
+    $result = $this->renderWithData($view_template, new ViewRenderData(rowRenders: ['ROW_A', 'ROW_B', 'ROW_C']));
     $rendered = (string) $this->renderer->renderInIsolation($result);
 
     self::assertStringContainsString('ROW_A', $rendered);
@@ -464,18 +448,34 @@ final class ViewTemplateRendererTest extends ViewTemplateKernelTestBase {
       'component_tree' => [$repeater_item, $item_item],
     ]);
 
-    $result = $this->container->get(ViewTemplateRenderer::class)->render(
-      $view_template,
-      '',
-      '',
-      '',
-      ['ROW_A', 'ROW_B', 'ROW_C'],
-    );
+    $result = $this->renderWithData($view_template, new ViewRenderData(rowRenders: ['ROW_A', 'ROW_B', 'ROW_C']));
     $rendered = (string) $this->renderer->renderInIsolation($result);
 
     self::assertStringNotContainsString('ROW_A', $rendered);
     self::assertStringContainsString('ROW_B', $rendered);
     self::assertStringNotContainsString('ROW_C', $rendered);
+  }
+
+  /**
+   * A limit of 0 repeats every remaining item, as in the view's own pager.
+   */
+  public function testRepeaterLimitZeroMeansNoLimit(): void {
+    [, $repeater_item, $item_item] = $this->repeaterWithItem([
+      ViewTemplateRepeater::INPUT_LIMIT => 0,
+      ViewTemplateRepeater::INPUT_OFFSET => 1,
+    ]);
+    $view_template = ViewTemplate::create([
+      'id' => 'test',
+      'label' => 'Test',
+      'component_tree' => [$repeater_item, $item_item],
+    ]);
+
+    $result = $this->renderWithData($view_template, new ViewRenderData(rowRenders: ['ROW_A', 'ROW_B', 'ROW_C']));
+    $rendered = (string) $this->renderer->renderInIsolation($result);
+
+    self::assertStringNotContainsString('ROW_A', $rendered);
+    self::assertStringContainsString('ROW_B', $rendered);
+    self::assertStringContainsString('ROW_C', $rendered);
   }
 
   /**
@@ -495,13 +495,9 @@ final class ViewTemplateRendererTest extends ViewTemplateKernelTestBase {
       'component_tree' => [$featured_repeater, $featured_item, $rest_repeater, $rest_item],
     ]);
 
-    $result = $this->container->get(ViewTemplateRenderer::class)->render(
-      $view_template,
-      '',
-      '',
-      '',
-      ['ROW_A', 'ROW_B', 'ROW_C', 'ROW_D', 'ROW_E'],
-    );
+    $result = $this->renderWithData($view_template, new ViewRenderData(
+      rowRenders: ['ROW_A', 'ROW_B', 'ROW_C', 'ROW_D', 'ROW_E'],
+    ));
     $rendered = (string) $this->renderer->renderInIsolation($result);
 
     foreach (['ROW_A', 'ROW_B', 'ROW_C', 'ROW_D', 'ROW_E'] as $row) {
@@ -531,38 +527,23 @@ final class ViewTemplateRendererTest extends ViewTemplateKernelTestBase {
     ]);
     $rows = ['ROW_A', 'ROW_B', 'ROW_C'];
 
-    $result = $this->container->get(ViewTemplateRenderer::class)->render($view_template, '', '', '', $rows, 0);
+    $result = $this->renderWithData($view_template, new ViewRenderData(rowRenders: $rows));
     $rendered = (string) $this->renderer->renderInIsolation($result);
     self::assertStringContainsString('ROW_A', $rendered);
     self::assertStringNotContainsString('ROW_B', $rendered);
     self::assertStringNotContainsString('ROW_C', $rendered);
 
-    $result = $this->container->get(ViewTemplateRenderer::class)->render($view_template, '', '', '', $rows, 1);
+    $result = $this->renderWithData($view_template, new ViewRenderData(rowRenders: $rows, currentPage: 1));
     $rendered = (string) $this->renderer->renderInIsolation($result);
     self::assertStringNotContainsString('ROW_A', $rendered);
     self::assertStringContainsString('ROW_B', $rendered);
     self::assertStringContainsString('ROW_C', $rendered);
 
-    $result = $this->container->get(ViewTemplateRenderer::class)->render($view_template, '', '', '', $rows, 2);
+    $result = $this->renderWithData($view_template, new ViewRenderData(rowRenders: $rows, currentPage: 2));
     $rendered = (string) $this->renderer->renderInIsolation($result);
     self::assertStringNotContainsString('ROW_A', $rendered);
     self::assertStringContainsString('ROW_B', $rendered);
     self::assertStringContainsString('ROW_C', $rendered);
-  }
-
-  /**
-   * Builds a root-level placeholder tree item.
-   */
-  private function placeholderItem(string $local_id): array {
-    $component_id = ViewTemplatePlaceholder::SOURCE_PLUGIN_ID . '.' . $local_id;
-    $component = Component::load($component_id);
-    self::assertNotNull($component);
-    return [
-      'uuid' => \Drupal::service('uuid')->generate(),
-      'component_id' => $component_id,
-      'component_version' => $component->getActiveVersion(),
-      'inputs' => [],
-    ];
   }
 
   /**

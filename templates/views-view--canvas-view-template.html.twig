@@ -3,13 +3,18 @@
  * @file
  * View output rendered through a Canvas view template.
  *
- * The wrapper mirrors core's views-view.html.twig: Views' AJAX finds the view
- * by its `js-view-dom-id-*` class, and contextual links use the title prefix
- * and suffix.
+ * The wrapper mirrors core's views-view.html.twig: the standard view classes
+ * (theme CSS, and Views' AJAX finding the enclosing `.view`), the
+ * `js-view-dom-id-*` class Views' AJAX finds the view by, and the title prefix
+ * and suffix contextual links use.
  */
 #}
 {%
   set classes = [
+    'view',
+    'view-' ~ id|clean_class,
+    'view-id-' ~ id,
+    'view-display-id-' ~ display_id,
     dom_id ? 'js-view-dom-id-' ~ dom_id,
   ]
 %}

@@ -22,7 +22,7 @@ final class ViewTemplateExtensionTest extends ViewTemplateKernelTestBase {
     self::assertNotNull($extension);
 
     self::assertSame(CanvasExtensionTypeEnum::Page, $extension->getType());
-    self::assertSame(['administer view template'], $extension->getPermissions());
+    self::assertSame(['administer view templates'], $extension->getPermissions());
     $module_path = \dirname(__DIR__, 3);
     self::assertStringEndsWith('/canvas_view_template/extension/index.html', $extension->getUrl());
     self::assertStringEndsWith('/canvas_view_template/extension/icon.svg', $extension->getIcon());

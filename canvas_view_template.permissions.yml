@@ -1,3 +1,4 @@
-administer view template:
-  title: 'Administer view template'
-  description: 'Create and edit the view templates that render Drupal Views displays.'
+administer view templates:
+  title: 'Administer view templates'
+  description: 'Create, edit and delete the view templates that render Drupal Views displays. A template changes the markup of every Views display that uses it.'
+  restrict access: true

@@ -1,0 +1,38 @@
+################
+# DrupalCI GitLabCI template for contrib projects, as generated for new
+# drupal.org projects. See https://project.pages.drupalcode.org/gitlab_templates/
+################
+
+include:
+  - project: $_GITLAB_TEMPLATES_REPO
+    ref: $_GITLAB_TEMPLATES_REF
+    file:
+      - '/includes/include.drupalci.main.yml'
+      - '/includes/include.drupalci.variables.yml'
+      - '/includes/include.drupalci.workflows.yml'
+
+################
+# Pipeline configuration variables, documented at
+# https://project.pages.drupalcode.org/gitlab_templates/
+################
+variables:
+  # This module needs Drupal ^11.4 and Canvas 1.13, so the "previous minor"
+  # (11.3) and the major versions on either side cannot install it.
+  OPT_IN_TEST_PREVIOUS_MINOR: '0'
+  OPT_IN_TEST_PREVIOUS_MAJOR: '0'
+  OPT_IN_TEST_NEXT_MAJOR: '0'
+  # Test the current core, the next minor and the newest supported PHP.
+  OPT_IN_TEST_CURRENT: '1'
+  OPT_IN_TEST_NEXT_MINOR: '1'
+  OPT_IN_TEST_MAX_PHP: '1'
+
+# The Node tests for the two browser scripts need no Drupal, only Node. They are
+# not part of the drupal.org templates, so they may fail without failing the
+# pipeline.
+node tests:
+  stage: test
+  image: node:24-alpine
+  allow_failure: true
+  script:
+    - node tests/js/live-preview.test.js
+    - node tests/js/style-options.test.js

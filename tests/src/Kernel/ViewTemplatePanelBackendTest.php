@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Drupal\Tests\canvas_view_template\Kernel;
 
 use Drupal\canvas\AutoSave\AutoSaveManager;
-use Drupal\canvas\Entity\Component;
 use Drupal\canvas_view_template\Controller\ViewTemplateDuplicateController;
 use Drupal\canvas_view_template\Controller\ViewTemplateUsageController;
 use Drupal\canvas_view_template\Entity\ViewTemplate;
@@ -51,9 +50,9 @@ final class ViewTemplatePanelBackendTest extends ViewTemplateKernelTestBase {
     $this->installEntitySchema('node');
     $this->installEntitySchema('path_alias');
     // Not uid 1, which would have every permission.
-    $this->setUpCurrentUser(['uid' => 2], ['administer view template']);
+    $this->setUpCurrentUser(['uid' => 2], ['administer view templates']);
 
-    $tree = [$this->item(ViewTemplatePlaceholder::VIEW_ITEM_LOCAL_ID)];
+    $tree = [$this->placeholderItem(ViewTemplatePlaceholder::VIEW_ITEM_LOCAL_ID)];
     ViewTemplate::create(['id' => 'used', 'label' => 'Used', 'component_tree' => $tree])->save();
     ViewTemplate::create(['id' => 'other', 'label' => 'Other'])->save();
     ViewTemplate::create(['id' => 'unused', 'label' => 'Unused'])->save();
@@ -67,7 +66,7 @@ final class ViewTemplatePanelBackendTest extends ViewTemplateKernelTestBase {
   public function testDuplicateCopiesDraft(): void {
     $template = ViewTemplate::load('used');
     $published = $template->getComponentTree()->getValue();
-    $draft_tree = [$this->item(ViewTemplatePlaceholder::VIEW_ROWS_LOCAL_ID)];
+    $draft_tree = [$this->placeholderItem(ViewTemplatePlaceholder::VIEW_ROWS_LOCAL_ID)];
     $this->saveDraft($template, $draft_tree);
 
     $response = $this->duplicate($template, 'used_copy');
@@ -84,7 +83,7 @@ final class ViewTemplatePanelBackendTest extends ViewTemplateKernelTestBase {
   public function testDuplicateOfInvalidDraftIsRejected(): void {
     $template = ViewTemplate::load('used');
     $rows = ViewTemplatePlaceholder::VIEW_ROWS_LOCAL_ID;
-    $this->saveDraft($template, [$this->item($rows), $this->item($rows)]);
+    $this->saveDraft($template, [$this->placeholderItem($rows), $this->placeholderItem($rows)]);
 
     $response = $this->duplicate($template, 'invalid_copy');
     self::assertSame(422, $response->getStatusCode());
@@ -154,20 +153,6 @@ final class ViewTemplatePanelBackendTest extends ViewTemplateKernelTestBase {
     View::load('first_view')->delete();
     self::assertSame([], $usage->displaysUsing('used'));
     self::assertSame([], $usage->displaysUsing('other'));
-  }
-
-  /**
-   * Builds a tree item for one of this module's placeholder components.
-   */
-  private function item(string $local_id): array {
-    $component = Component::load(ViewTemplatePlaceholder::SOURCE_PLUGIN_ID . '.' . $local_id);
-    self::assertNotNull($component);
-    return [
-      'uuid' => $this->container->get('uuid')->generate(),
-      'component_id' => $component->id(),
-      'component_version' => $component->getActiveVersion(),
-      'inputs' => [],
-    ];
   }
 
   /**

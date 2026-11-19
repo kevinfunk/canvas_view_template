@@ -42,15 +42,35 @@ module adds:
 - A `Page template` option alongside it, to override which Canvas page
   template wraps that specific display when it renders as a page.
 
-For a full list of module features, see the project page.
-
 
 ## Requirements
 
 This module requires the following modules:
 
 - [Views](https://www.drupal.org/docs/8/core/modules/views) (Drupal core)
-- [Canvas](https://www.drupal.org/project/canvas)
+- [Canvas](https://www.drupal.org/project/canvas) 1.13.x, with Drupal 11.4.
+  The info file allows only `>=1.13, <1.14`, because this module uses Canvas
+  internals that have no stability promise yet (see "Coupling to Canvas").
+  The constraint matches releases only: a git checkout or `1.x-dev` of Canvas
+  does not satisfy it, so to test against one, change the constraint in a
+  local copy of `canvas_view_template.info.yml`.
+
+### Component config and Canvas's schema
+
+The components this module ships use a component source that Canvas's config
+schema does not list yet. The schema's list of allowed sources is only lifted by
+Canvas's development module `canvas_dev_mode`, until Canvas makes component
+sources a public API ([drupal.org/i/3520484](https://www.drupal.org/i/3520484)).
+
+On a normal site that has no effect: config saves are not validated, and the
+components install, render and can be edited. Anything that validates config
+(strict schema checks in tests, the Config Inspector module, a recipe that
+validates its config) reports `source` as an invalid choice on all 16
+`canvas.component.canvas_view_template_*` components, and nothing else. If that
+blocks you, skip validation for those components, or enable `canvas_dev_mode`
+on that environment only: it is a development module, not for production.
+`ViewTemplateWithoutDevModeTest` records this behaviour, so a Canvas update that
+changes it fails a test.
 
 
 ## Recommended modules
@@ -66,9 +86,37 @@ This module requires the following modules:
 
 ## Installation
 
-Install as you would normally install a contributed Drupal module. See
-[Installing Modules](https://www.drupal.org/docs/extending-drupal/installing-modules)
-for further information.
+Install it with Composer, then enable it:
+
+```bash
+composer require drupal/canvas_view_template
+drush en canvas_view_template
+```
+
+Enabling installs the module's Library components and the "View template"
+library folder. Older builds had update hooks up to 10017; they were removed
+before the first release, so there is no upgrade path from those builds:
+reinstall instead.
+
+### Moving between environments (config sync)
+
+Enable the module once, on the environment whose config you export, and let
+every other environment get it through `drush config:import`, which enables the
+module because it is listed in `core.extension`. Do not also run `drush en` on
+each environment before importing: that creates the components and the library
+folder there with their own UUIDs, and the import then fails on every one of
+them with "different UUID" errors. A new site built from exported config uses
+`drush site:install --existing-config`.
+
+Do not put `canvas.component.canvas_view_template_*` or `canvas.folder.*` in
+`config_ignore`: with those ignored, an environment can end up with two "View
+template" folders or with components that differ from the code.
+
+### Not an API for other modules
+
+The module's classes are `final` and it has no hooks, events or plugin types of
+its own for other modules to use. Customize with your own Canvas components, or
+with a theme override of `views-view--canvas-view-template.html.twig`.
 
 
 ## Configuration
@@ -88,11 +136,12 @@ for further information.
 
 ## Uninstalling
 
-Uninstalling deletes every View that uses the **Canvas view template** format,
-with all of its displays (Drupal's confirmation page lists them). To keep those
-Views, switch those displays' **Format** to another style first. View templates
-and this module's components are deleted too, along with the empty "View
-template" library folder.
+Drupal deletes any View that depends on a module being uninstalled, and a View
+depends on the module providing its style. So uninstall is blocked while a
+display uses the **Canvas view template** format, with a message listing those
+displays. Switch their **Format** to another style first; then uninstalling
+deletes the view templates and this module's components, along with the empty
+"View template" library folder.
 
 
 ## How it works
@@ -110,7 +159,7 @@ resolved independently, so a "2 featured cards, then the rest as a
 list" layout is just two repeaters with different `limit`/`offset`
 settings. A `View repeater` can't be placed inside another one (at any depth,
 even with a container or `View condition` in between): the inner one would
-have no items of its own to repeat. The template can't be saved until it is
+have no items of its own to repeat. The template can't be published until it is
 moved beside the first one, or `View item` and `View field` are used inside
 the first one instead. Components that show the whole view's output (`View
 rows`, `View exposed filters`, `View pager`, `View header`, `View footer`,
@@ -223,7 +272,8 @@ the stylesheets and scripts its new content needs and applies new
 `drupalSettings`. It re-fetches on filter submits, including Views with AJAX
 turned on, and on pager and sort links. Other links in it are left to Canvas.
 
-**The View templates panel.** Each row shows which Views use the template
+**The View templates panel.** Creating, editing, duplicating and deleting
+templates there needs the `administer view templates` permission. Each row shows which Views use the template
 ("Used by Articles: Page and 2 more"), or "Not used". The row's menu has
 **Duplicate**, which copies a template under a new label and machine name and
 opens the copy. The copy starts from what the editor shows, including changes
@@ -235,8 +285,8 @@ Rows show "Usage unknown" when the view usage could not be loaded.
 **Deleting a template.** A template that a View display uses cannot be
 deleted. The View templates panel explains which displays use it and asks you
 to choose another template in their Format settings first, and Canvas's API
-refuses the deletion too (403, with the reason shown only to users who may
-administer view templates). The lock covers deletes that check access (the
+refuses the deletion too (403, with the reason shown only to users who
+hold the `administer view templates` permission). The lock covers deletes that check access (the
 panel and Canvas's API); a config import or code calling `delete()` is not
 stopped. The lock is a check on the displays' Format
 settings, not a configuration dependency: a View does not depend on its view
@@ -248,10 +298,10 @@ rendering without it.
 ## Keeping the panel in step with Canvas
 
 The View templates panel is plain JavaScript and CSS in `extension/`, styled to
-match Canvas's own panels instead of bundling Radix Themes. Its sizes, colours
+match Canvas's own panels instead of bundling Radix Themes. Its sizes, colors
 and the row menu's hover were taken from Canvas's code and compiled stylesheet
 (its menus are the Radix Themes dropdown at the default size, accent blue), and
-were last compared against Canvas 1.12.0. After a Canvas update, compare the
+were last compared against Canvas 1.13.0. After a Canvas update, compare the
 values in `extension/dialog.css` and the top of `extension/app.css` with the
 `rt-BaseMenu*` rules in Canvas's compiled stylesheet (`ui/dist/assets/index.css`
 in the Canvas module) and with `ui/src/components/UnifiedMenu.tsx`. The
@@ -260,29 +310,31 @@ values shows up there; a change in Canvas itself does not.
 
 ## Coupling to Canvas
 
-What a Canvas update could break, and how it would show:
+Canvas has no stable public API for what this module does, so it uses internals
+and a few routes by name. A Canvas update can break any row below. The last
+column names the test that fails when it does, or says "none" where there is
+no test.
 
-- **Fiber dispatch.** The renderer relies on
-  `ComponentTreeItemList::renderify()` calling each source's
-  `renderComponent()` synchronously. If that changes, placeholders silently
-  render nothing; the kernel tests catch it.
-- **Update hooks** call Canvas APIs (`AutoSaveManager`, `Folder`, `Component`).
-  A signature change makes `drush updb` fail with a fatal error.
-- **Route regex.** `ViewTemplateRouteSubscriber` assumes Canvas's
-  `canvas_config_entity_type_id` requirement has the `(a|b)` form. Another form
-  leaves view templates unreachable through Canvas's API, so the editor fails
-  to load them.
-- **Page data controller.** `ViewTemplateEntityFormControllerSubscriber`
-  replaces Canvas's controller for non-fieldable entities with its own form, so
-  a change to Canvas's Page data panel is not picked up for view templates.
-- **Preview envelope.** `ViewTemplateEntityFormFieldsSubscriber` reads
-  `PreviewEnvelope`'s public properties and must run before Canvas's
-  `PreviewEnvelopeViewSubscriber` (priority 0). A change shows in the editor,
-  for view templates only.
-- **`@internal` base classes** (`ComponentSourceBase`,
-  `ComponentTreeConfigEntityBase`, `CanvasConfigEntityAccessControlHandler`)
-  can change without a deprecation; it would usually show as fatal errors or
-  failing kernel tests.
+| Canvas symbol | Used in | What breaks | Caught by |
+| --- | --- | --- | --- |
+| `ComponentSourceBase` (`@internal`), `ComponentSourceInterface`, `ComponentSourceWithSlotsInterface`, the `ComponentSource` attribute | `src/Plugin/Canvas/ComponentSource/*`, base class `ViewTemplateComponentSourceBase` | Fatal errors when a method signature changes; components stop loading | `ViewTemplateComponentContractTest`, and most kernel tests (a fatal fails the suite) |
+| `canvas.component.*` schema, `source` choice and `canvas_dev_mode` | `config/install/canvas.component.*.yml` | Config validation reports all 16 components as invalid (see Requirements); a Canvas that validates on save or import could refuse them | `ViewTemplateWithoutDevModeTest`; `ViewTemplateConfigDriftTest` with dev mode |
+| Component version hash (`generateVersionHash()`), `Component::loadVersion()`, `getActiveVersion()` | `active_version` in the shipped config, `ViewTemplateComponentInstanceForm` | Components fail to load or edit; stored hashes go stale | `ViewTemplateComponentContractTest`, `ViewTemplateConfigDriftTest`, `ViewTemplateTest::testShippedComponentVersionHashesAreCurrent` |
+| `Folder` config entity, created by `Component::postSave()` | `canvas_view_template.install`, `ViewTemplatePlaceholder::LIBRARY_FOLDER_NAME` | Components appear outside the "View template" folder, or two folders exist | `ViewTemplateConfigDriftTest` (folder contents); config sync between environments: none |
+| `ComponentTreeConfigEntityBase` (`@internal`), `CanvasHttpApiEligibleConfigEntityInterface`, `ClientServerConversionTrait` (`@internal`), `ClientSideRepresentation`, `EmptyTargetEntityProviderInterface`, `ComponentTreeItemList` | `src/Entity/ViewTemplate.php`, `ViewTemplateTreeItems` | Fatals; the editor cannot load, save or validate templates | `ViewTemplateTest`, `ViewTemplateTreeFuzzTest`; Canvas's HTTP config API (PATCH, POST): none |
+| `ComponentTreeItemList::renderify()` and Fibers | `ViewTemplateRenderer` | Placeholders silently render nothing | `ViewTemplateRendererTest`, `ViewTemplateRendererEdgeCasesTest` |
+| `CanvasConfigEntityAccessControlHandler` | `ViewTemplateAccessControlHandler` | Access and delete-lock behaviour changes | `ViewTemplateRouteAccessTest`, `ViewTemplatePanelBackendTest` |
+| `AutoSaveManager` | `ViewTemplateDrafts` | Previews show the published template instead of the draft | `ViewTemplateDraftsTest` |
+| `ComponentInstanceForm` (`final`, its `FORM_ID` and a copy of `buildForm()`), `ComponentTreeLoader`, `ComponentSourceManager`, `JsonSchemaPropsComponentSourceBase`, `Fallback`, `FormIdPreRender` | `ViewTemplateComponentInstanceForm` | The settings form for components in a template errors or differs from Canvas's | `ViewTemplateComponentInstanceFormTest`; drift of the copied code: none, compared by hand |
+| `ModuleHooks::PAGE_DATA_FORM_ID`, `FormIdPreRender` | `ViewTemplatePreviewForm` | The "Page data" panel loses its AJAX handling | `ViewTemplatePreviewTest` |
+| `canvas.api.form.content_entity` route and its controller | `ViewTemplateEntityFormControllerSubscriber` | A change to Canvas's "Page data" panel is not picked up for view templates | none directly (`ViewTemplatePreviewTest` covers the form) |
+| `PreviewEnvelope` public properties, `PreviewEnvelopeViewSubscriber` at priority 0 | `ViewTemplatePreviewSubscriber`, `ViewTemplateEntityFormFieldsSubscriber` | The editor preview for view templates fails or loses fields | `ViewTemplatePreviewTest`, `ViewTemplateHardeningTest` |
+| Routes `canvas.api.config.{get,patch,delete,post,list}` and the `(a\|b)` form of their `canvas_config_entity_type_id` requirement | `ViewTemplateRouteSubscriber` | View templates are unreachable through Canvas's API, so the editor fails to load them | `ViewTemplateRouteSubscriberTest` |
+| Route-name prefix `canvas.api.form.` and the `canvas_stark` theme | `canvas_view_template.routing.yml`, `ViewTemplateComponentInstanceForm` | The settings form renders in the wrong theme or blank | `ViewTemplateComponentInstanceFormTest` (theme), `ViewTemplateRouteAccessTest` (route) |
+| Route-name prefix `canvas.api.layout.` | `ViewTemplatePreviewHooks`, `ViewTemplatePreviewSubscriber` | Editor previews and the Views preview behave like front-end requests | `ViewTemplatePreviewTest`, `ViewTemplatePageVariantSelectorSubscriberTest` |
+| `CanvasPageVariant` plugin ID with `PREVIEW_KEY` and `VARIANT_ID_KEY`, the `PageVariant` entity | `ViewTemplatePageVariantSelectorSubscriber` | The wrong page template (or none) wraps the view | `ViewTemplatePageVariantSelectorSubscriberTest` |
+| Routes `canvas.boot.entity` and `canvas.boot.app` | `ViewTemplateStyle` (links in the Views UI) | Broken "edit template" links in the Views UI | `ViewTemplateStyleTest` |
+| Canvas page extensions (`canvas_view_template.canvas_extension.yml`) and the compiled Canvas stylesheet | `extension/`, see "Keeping the panel in step with Canvas" | The View templates panel is missing or looks different | `ViewTemplateExtensionTest` and the browser tests (a style change in Canvas itself: none) |
 
 ## Known limitations
 
@@ -295,26 +347,19 @@ What a Canvas update could break, and how it would show:
   styled to match, which lists, creates and deletes them and opens
   Canvas's real, generic editor for the actual visual building. There is
   no separate Drupal admin listing.
-- **This module extends a small number of Canvas classes marked
-  `@internal`** (`ComponentSourceBase`, `ComponentTreeConfigEntityBase`),
-  because Canvas does not yet expose a public, stable API for
-  third-party component sources or component-tree-bearing entity types.
-  A future Canvas release could change these without a deprecation
-  cycle; this is a known, accepted trade-off, not an oversight.
+- **This module extends Canvas classes marked `@internal`**, because Canvas does
+  not yet expose a public, stable API for third-party component sources or
+  component-tree-bearing entity types. A Canvas release could change them
+  without a deprecation cycle; the version constraint in the info file and the
+  table above are the safeguards, and this is a known, accepted trade-off.
 - **The component settings form is a copy of Canvas's.** Canvas's
   `ComponentInstanceForm` asserts a fixed list of entity types that
   doesn't include `ViewTemplate`, and the class is `final`. View
   templates therefore use their own copy
   (`src/Form/ViewTemplateComponentInstanceForm.php`, routed by
-  `canvas.api.form.component_instance.view_template`), which must be
+  `canvas.api.form.component_instance.canvas_view_template`), which must be
   kept in sync with Canvas when `ComponentInstanceForm` changes. It was
-  last compared against Canvas 1.12.0.
-- **Update migrations cover config component trees only.** When an update
-  replaces one of this module's components, placements are moved in view
-  templates, patterns, content templates, page templates and page regions
-  (published and drafts), not in Canvas Pages or other content entities. A
-  moved draft is recorded as saved by the user running the update, at that
-  time.
+  last compared against Canvas 1.13.0.
 
 ### Not built: linking Canvas components to an item's fields
 
@@ -346,11 +391,12 @@ version, built when there is a real case.
 
 These components ship as config and their sources are not discovered, so Canvas
 never updates them. A change to a component's slot definitions or settings
-schema changes its version hash. It then needs an update hook that creates the
-new version on the existing Component entity and makes it active, and the new
-hash as `active_version` in the shipped config (`config/install`). Slot titles
-and descriptions are plain English for this reason: translated, the hash would
-depend on the interface language.
+schema changes its version hash, so put the new hash as `active_version` in the
+shipped config (`config/install`). Sites that already have the module also need
+an update hook that creates the new version on the existing Component entity
+and makes it active, and moves placements if the component is replaced. Slot
+titles and descriptions are plain English for this reason: translated, the hash
+would depend on the interface language.
 
 ## Testing
 
@@ -361,10 +407,36 @@ vendor/bin/phpunit -c web/core/phpunit.xml.dist web/modules/custom/canvas_view_t
 ```
 
 Browser tests drive the Canvas editor in a real browser: the view select in
-Page data, the full-width preview and its pager, and the nested repeater
-warning. They need a WebDriver browser. With DDEV's selenium-standalone-chrome
+Page data, the full-width preview and its pager, the nested repeater
+warning, and the View templates panel (usage line, Duplicate, the delete lock,
+keyboard focus and menu placement). They need a WebDriver browser. With DDEV's selenium-standalone-chrome
 add-on the environment is already set up:
 
 ```bash
 ddev exec "vendor/bin/phpunit -c web/core/phpunit.xml.dist web/modules/custom/canvas_view_template/tests/src/FunctionalJavascript"
 ```
+
+The two scripts (`js/live-preview.js`, `js/style-options.js`) also have
+dependency-free Node tests against a small DOM stub. They need only Node:
+
+```bash
+node tests/js/live-preview.test.js
+node tests/js/style-options.test.js
+```
+
+### Development checks
+
+The drupal.org pipeline (`.gitlab-ci.yml`) runs PHPCS, PHPStan, cspell and the
+PHPUnit tests. The same checks run locally:
+
+```bash
+# Coding standards (Drupal and DrupalPractice, see phpcs.xml.dist)
+vendor/bin/phpcs --standard=web/modules/custom/canvas_view_template/phpcs.xml.dist web/modules/custom/canvas_view_template
+
+# Static analysis: level 6, with the findings that exist today in
+# phpstan-baseline.neon so that only new ones fail
+vendor/bin/phpstan analyze -c web/modules/custom/canvas_view_template/phpstan.neon
+```
+
+The spell check reads `.cspell-project-words.txt`; add project-specific words
+there, one per line.

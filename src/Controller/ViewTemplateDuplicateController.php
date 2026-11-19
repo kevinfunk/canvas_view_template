@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\canvas_view_template\Controller;
 
-use Drupal\canvas\AutoSave\AutoSaveManager;
 use Drupal\canvas_view_template\Entity\ViewTemplate;
+use Drupal\canvas_view_template\ViewTemplateDrafts;
 use Drupal\Core\Controller\ControllerBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -21,14 +21,14 @@ use Symfony\Component\HttpFoundation\Request;
 final class ViewTemplateDuplicateController extends ControllerBase {
 
   public function __construct(
-    private readonly AutoSaveManager $autoSaveManager,
+    private readonly ViewTemplateDrafts $drafts,
   ) {}
 
   /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container): static {
-    return new static($container->get(AutoSaveManager::class));
+    return new static($container->get(ViewTemplateDrafts::class));
   }
 
   /**
@@ -49,8 +49,7 @@ final class ViewTemplateDuplicateController extends ControllerBase {
       return self::failure(\sprintf('A view template with the machine name "%s" already exists.', $id), 409);
     }
 
-    $autosave = $this->autoSaveManager->getAutoSaveEntity($view_template);
-    $source = !$autosave->isEmpty() && $autosave->entity instanceof ViewTemplate ? $autosave->entity : $view_template;
+    $source = $this->drafts->latest($view_template);
     $copy = ViewTemplate::create([
       'id' => $id,
       'label' => $label,

@@ -9,7 +9,13 @@ services:
     tags:
       - { name: event_subscriber }
   Drupal\canvas_view_template\ViewTemplateUsage:
-    arguments: ['@entity_type.manager']
+    arguments: ['@config.factory']
+  Drupal\canvas_view_template\ViewTemplateUninstallValidator:
+    arguments: ['@Drupal\canvas_view_template\ViewTemplateUsage']
+    tags:
+      - { name: module_install.uninstall_validator }
+  Drupal\canvas_view_template\ViewTemplateDrafts:
+    arguments: ['@Drupal\canvas\AutoSave\AutoSaveManager']
   Drupal\canvas_view_template\Preview\ViewTemplatePreviewSelection:
     arguments:
       - '@tempstore.private'
@@ -20,14 +26,14 @@ services:
       - '@Drupal\canvas_view_template\Preview\ViewTemplatePreviewSelection'
       - '@Drupal\canvas_view_template\Preview\ViewPreviewBuilder'
       - '@Drupal\canvas_view_template\Render\ViewTemplateRenderer'
-      - '@Drupal\canvas\AutoSave\AutoSaveManager'
+      - '@Drupal\canvas_view_template\ViewTemplateDrafts'
   canvas_view_template.preview_subscriber:
     class: Drupal\canvas_view_template\EventSubscriber\ViewTemplatePreviewSubscriber
     arguments:
       - '@Drupal\canvas_view_template\Preview\ViewTemplatePreviewSelection'
       - '@Drupal\canvas_view_template\Preview\ViewTemplateLivePreview'
       - '@url_generator'
-      - '@Drupal\canvas\AutoSave\AutoSaveManager'
+      - '@Drupal\canvas_view_template\ViewTemplateDrafts'
     tags:
       - { name: event_subscriber }
   canvas_view_template.entity_form_controller_subscriber:

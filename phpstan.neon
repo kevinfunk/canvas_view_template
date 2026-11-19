@@ -1,0 +1,31 @@
+# Used by the drupal.org GitLab "phpstan" job, and runnable locally:
+# vendor/bin/phpstan analyze -c web/modules/custom/canvas_view_template/phpstan.neon
+# The baseline lists the findings that exist today (mostly types of Drupal render
+# arrays and Views properties). New code is held to level 6; fix entries and
+# regenerate it with `phpstan analyze --generate-baseline=phpstan-baseline.neon`.
+includes:
+  - phpstan-baseline.neon
+
+parameters:
+  level: 6
+  fileExtensions:
+    - php
+    - module
+    - inc
+    - install
+  paths:
+    - src
+    - tests
+    - canvas_view_template.install
+  treatPhpDocTypesAsCertain: false
+  # The component sources extend Canvas's @internal ComponentSourceBase: each
+  # class carries its own `@phpstan-ignore classExtendsInternalClass...`.
+  # Canvas gives no public API for a component source yet.
+  # @see https://www.drupal.org/i/3520484
+  # The inline `@phpstan-ignore` comments also cover Canvas types that differ
+  # between Canvas releases, so an ignore that no longer matches is not an error.
+  reportUnmatchedIgnoredErrors: false
+  ignoreErrors:
+    # Drupal render and form arrays have no useful value type.
+    - identifier: missingType.iterableValue
+    - identifier: missingType.generics

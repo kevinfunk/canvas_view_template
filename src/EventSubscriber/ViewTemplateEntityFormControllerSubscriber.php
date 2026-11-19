@@ -13,11 +13,12 @@ use Symfony\Component\HttpKernel\Event\ControllerEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 
 /**
- * Returns an empty "Page data" form for config entities.
+ * Answers the "Page data" form request for config entities.
  *
  * `canvas.api.form.content_entity` type-hints FieldableEntityInterface, so
  * requesting it for a ViewTemplate would 500. The editor always requests it
- * and can't be patched, so this swaps in a harmless empty render array.
+ * and can't be patched, so this swaps in the preview-view form for a view
+ * template and an empty render array for any other entity.
  *
  * @see \Drupal\canvas\Controller\EntityFormController::form()
  */

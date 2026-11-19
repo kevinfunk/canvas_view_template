@@ -9,8 +9,9 @@ use Drupal\canvas_view_template\Entity\ViewTemplate;
 use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateField;
 use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateRepeater;
 use Drupal\canvas_view_template\Render\ViewFieldRenders;
-use Drupal\canvas_view_template\Render\ViewTemplateRenderer;
+use Drupal\canvas_view_template\Render\ViewRenderData;
 use Drupal\Core\Form\FormState;
+use Drupal\Core\Render\Markup;
 use Drupal\views\Entity\View;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
@@ -111,7 +112,7 @@ final class ViewTemplateFieldTest extends ViewTemplateKernelTestBase {
     }
     $view_template = ViewTemplate::create(['id' => 'field_test', 'label' => 'Field test', 'component_tree' => $tree]);
     $rows = [['#markup' => 'ROW_ONE'], ['#markup' => 'ROW_TWO'], ['#markup' => 'ROW_THREE']];
-    $result = $this->container->get(ViewTemplateRenderer::class)->render($view_template, ['#markup' => 'ROWS'], '', '', $rows, 0, [], $this->fieldData());
+    $result = $this->renderWithData($view_template, new ViewRenderData(rows: ['#markup' => 'ROWS'], rowRenders: $rows, fieldData: $this->fieldData()));
     return (string) $this->renderer->renderInIsolation($result);
   }
 
@@ -172,9 +173,57 @@ final class ViewTemplateFieldTest extends ViewTemplateKernelTestBase {
 
     $inline = $this->renderFields([$this->settings('title', 'div', ViewTemplateField::LABEL_INLINE)], NULL);
     self::assertMatchesRegularExpression('#<span class="cvt-field__label">Title</span>#', $inline);
-    self::assertMatchesRegularExpression('#<div class="cvt-field cvt-field--inline">\s*<span class="cvt-field__label">Title</span>\s*<span class="cvt-field__value">\s*FIRST_TITLE#', $inline);
+    self::assertMatchesRegularExpression('#<div class="cvt-field cvt-field--inline">\s*<span class="cvt-field__label">Title</span>\s*<div class="cvt-field__value">\s*FIRST_TITLE#', $inline);
+    // The layout wrapper stays a div; the element wraps the value.
     $heading = $this->renderFields([$this->settings('title', 'h3', ViewTemplateField::LABEL_INLINE)], NULL);
-    self::assertMatchesRegularExpression('#<h3 class="cvt-field cvt-field--inline">#', $heading);
+    self::assertMatchesRegularExpression('#<div class="cvt-field cvt-field--inline">.*<h3 class="cvt-field__value">\s*FIRST_TITLE\s*</h3>#s', $heading);
+  }
+
+  /**
+   * A block inside a `p`, `span` or heading would be closed early, so a div.
+   */
+  public function testBlockMarkupIsNotWrappedInPhrasingElements(): void {
+    $body = '<div class="field"><p>BODY_TEXT</p></div>';
+    $data = [
+      'rows' => [['body' => ['#markup' => Markup::create($body)], 'title' => ['#markup' => 'PLAIN_TITLE']]],
+      'labels' => ['body' => 'Body', 'title' => 'Title'],
+    ];
+    $render = function (string $field, string $element, string $label) use ($data): string {
+      $view_template = ViewTemplate::create([
+        'id' => 'field_test',
+        'label' => 'Field test',
+        'component_tree' => [$this->fieldItem($this->settings($field, $element, $label))],
+      ]);
+      $result = $this->renderWithData($view_template, new ViewRenderData(rows: ['#markup' => 'ROWS'], rowRenders: [['#markup' => 'ROW']], fieldData: $data));
+      return (string) $this->renderer->renderInIsolation($result);
+    };
+    foreach (['p', 'span', 'h2'] as $element) {
+      foreach ([ViewTemplateField::LABEL_HIDDEN, ViewTemplateField::LABEL_INLINE] as $label) {
+        $html = $render('body', $element, $label);
+        // The wrapper directly around the block is a div, not the element.
+        self::assertDoesNotMatchRegularExpression("#<$element\\b[^>]*>\\s*<div class=\"field\">#", $html, "$element, $label");
+        self::assertMatchesRegularExpression('#<div\\b[^>]*>\\s*<div class="field"><p>BODY_TEXT</p></div>#', $html, "$element, $label");
+      }
+    }
+    // Plain text keeps the chosen element.
+    $html = $render('title', 'p', ViewTemplateField::LABEL_INLINE);
+    self::assertMatchesRegularExpression('#<p class="cvt-field__value">\s*PLAIN_TITLE\s*</p>#', $html);
+  }
+
+  /**
+   * The label is plain text: markup in it is escaped.
+   */
+  public function testLabelIsEscaped(): void {
+    $data = ['rows' => [['title' => ['#markup' => 'T']]], 'labels' => ['title' => '<b>Bold</b> & co']];
+    $view_template = ViewTemplate::create([
+      'id' => 'field_test',
+      'label' => 'Field test',
+      'component_tree' => [$this->fieldItem($this->settings('title', 'div', ViewTemplateField::LABEL_ABOVE))],
+    ]);
+    $result = $this->renderWithData($view_template, new ViewRenderData(rows: ['#markup' => 'ROWS'], rowRenders: [['#markup' => 'ROW']], fieldData: $data));
+    $html = (string) $this->renderer->renderInIsolation($result);
+    self::assertStringContainsString('&lt;b&gt;Bold&lt;/b&gt; &amp; co', $html);
+    self::assertStringNotContainsString('<b>', $html);
   }
 
   /**

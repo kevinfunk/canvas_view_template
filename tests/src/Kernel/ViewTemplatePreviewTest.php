@@ -71,14 +71,7 @@ final class ViewTemplatePreviewTest extends ViewTemplateKernelTestBase {
    */
   protected function setUp(): void {
     parent::setUp();
-    $this->installEntitySchema('node');
-    $this->installEntitySchema('canvas_page');
-    $this->installEntitySchema('path_alias');
-    $this->installSchema('node', ['node_access']);
-    $this->installSchema('system', ['sequences']);
-    $this->container->get('theme_installer')->install(['stark']);
-    $this->config('system.theme')->set('default', 'stark')->save();
-    $this->container->get('theme.manager')->setActiveTheme($this->container->get('theme.initialization')->initTheme('stark'));
+    $this->installNodeSupport();
     // The private temp store is per user.
     $this->setUpCurrentUser(['uid' => 2], ['access content', 'bypass node access']);
 
@@ -158,9 +151,9 @@ final class ViewTemplatePreviewTest extends ViewTemplateKernelTestBase {
   public static function selectionValues(): array {
     return [
       'view and display' => ['content/page_1', ['view' => 'content', 'display' => 'page_1']],
-      'legacy colon' => ['content:page_1', ['view' => 'content', 'display' => 'page_1']],
+      'old colon format' => ['content:page_1', NULL],
       'none' => ['none', NULL],
-      'legacy none' => ['_none', NULL],
+      'old none value' => ['_none', NULL],
       'empty' => ['', NULL],
       'a group label' => ['test', NULL],
       'extra part' => ['a/b/c', NULL],
@@ -199,16 +192,18 @@ final class ViewTemplatePreviewTest extends ViewTemplateKernelTestBase {
     self::assertNull($builder->build('missing_view', 'default'));
     self::assertNull($builder->build('preview_test_view', 'missing_display'));
 
-    $pieces = $builder->build('preview_test_view', 'page_1');
-    self::assertNotNull($pieces);
-    self::assertCount(1, $pieces['row_renders']);
-    self::assertSame(0, $pieces['current_page']);
-    self::assertSame('1', $pieces['summary']['@start']);
-    self::assertSame('1', $pieces['summary']['@end']);
-    self::assertSame('1', $pieces['summary']['@total']);
-    self::assertSame('1', $pieces['summary']['@page_count']);
-    self::assertSame(['title'], \array_keys($pieces['field_data']['rows'][0]));
-    self::assertStringContainsString('First article', (string) $this->renderer->renderInIsolation($pieces['row_renders'][0]));
+    $built = $builder->build('preview_test_view', 'page_1');
+    self::assertNotNull($built);
+    $pieces = $built['data'];
+    self::assertCount(1, $pieces->rowRenders);
+    self::assertSame(0, $pieces->currentPage);
+    self::assertSame('1', $pieces->summary['@start']);
+    self::assertSame('1', $pieces->summary['@end']);
+    self::assertSame('1', $pieces->summary['@total']);
+    self::assertSame('1', $pieces->summary['@page_count']);
+    self::assertSame(['title'], \array_keys($pieces->fieldData['rows'][0]));
+    $first_row = $pieces->rowRenders[0];
+    self::assertStringContainsString('First article', (string) $this->renderer->renderInIsolation($first_row));
   }
 
   /**
@@ -424,8 +419,8 @@ final class ViewTemplatePreviewTest extends ViewTemplateKernelTestBase {
       'multiple_pages' => FALSE,
       'first_page' => TRUE,
       'filters_applied' => FALSE,
-    ], $built['facts']);
-    self::assertSame(['/node/1'], $built['item_urls']);
+    ], $built['data']->facts);
+    self::assertSame(['/node/1'], $built['data']->itemUrls);
 
     // An exposed filter counts as applied only once a value is submitted.
     View::create([
@@ -561,7 +556,7 @@ final class ViewTemplatePreviewTest extends ViewTemplateKernelTestBase {
    * A template that Views use cannot be deleted, by anyone, until none do.
    */
   public function testTemplateInUseCannotBeDeleted(): void {
-    $admin = $this->createUser(['administer view template']);
+    $admin = $this->createUser(['administer view templates']);
     ViewTemplate::create(['id' => 'unused_template', 'label' => 'Unused'])->save();
     $used = ViewTemplate::load('preview_test');
     $unused = ViewTemplate::load('unused_template');

@@ -71,11 +71,11 @@ final class ViewTemplatePageVariantSelectorSubscriber implements EventSubscriber
     }
     $event->addCacheableDependency($view->storage);
 
-    $style_options = $view->display_handler->getOption('style');
-    if (!\is_array($style_options) || ($style_options['type'] ?? NULL) !== ViewTemplateStyle::PLUGIN_ID) {
+    $options = ViewTemplateStyle::displayOptions($view);
+    if ($options === NULL) {
       return;
     }
-    $override = $style_options['options'][ViewTemplateStyle::PAGE_VARIANT_OPTION_KEY] ?? NULL;
+    $override = $options[ViewTemplateStyle::PAGE_VARIANT_OPTION_KEY] ?? NULL;
     if ($override === NULL || $override === '') {
       // Unset: keep the site default.
       return;

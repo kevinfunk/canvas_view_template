@@ -1,9 +1,9 @@
 # Component settings form for view templates. Canvas's generic route asserts a
-# fixed list of entity types. The literal `view_template` segment wins over it,
+# fixed list of entity types. The literal `canvas_view_template` segment wins over it,
 # and the `canvas.api.form.` prefix keeps Canvas's canvas_stark theme negotiation.
 # @see \Drupal\canvas_view_template\Form\ViewTemplateComponentInstanceForm
-canvas.api.form.component_instance.view_template:
-  path: '/canvas/api/v0/form/component-instance/view_template/{entity}'
+canvas.api.form.component_instance.canvas_view_template:
+  path: '/canvas/api/v0/form/component-instance/canvas_view_template/{entity}'
   defaults:
     _form: 'Drupal\canvas_view_template\Form\ViewTemplateComponentInstanceForm'
     _title: 'Component Instance Form'
@@ -15,7 +15,7 @@ canvas.api.form.component_instance.view_template:
     _wrapper_format: 'canvas_template'
     parameters:
       entity:
-        type: entity:view_template
+        type: entity:canvas_view_template
     _format: 'json'
   methods:
     - PATCH
@@ -32,7 +32,7 @@ canvas_view_template.live_preview:
   options:
     parameters:
       view_template:
-        type: entity:view_template
+        type: entity:canvas_view_template
   methods:
     - GET
 
@@ -44,11 +44,11 @@ canvas_view_template.usage:
     _controller: 'Drupal\canvas_view_template\Controller\ViewTemplateUsageController::usage'
   requirements:
     # Not `view_template.delete`: that is denied while the template is in use.
-    _permission: 'administer view template'
+    _permission: 'administer view templates'
   options:
     parameters:
       view_template:
-        type: entity:view_template
+        type: entity:canvas_view_template
   methods:
     - GET
 
@@ -59,7 +59,7 @@ canvas_view_template.usage_all:
   defaults:
     _controller: 'Drupal\canvas_view_template\Controller\ViewTemplateUsageController::all'
   requirements:
-    _permission: 'administer view template'
+    _permission: 'administer view templates'
   methods:
     - GET
 
@@ -70,11 +70,11 @@ canvas_view_template.duplicate:
   defaults:
     _controller: 'Drupal\canvas_view_template\Controller\ViewTemplateDuplicateController::duplicate'
   requirements:
-    _permission: 'administer view template'
+    _permission: 'administer view templates'
     _csrf_request_header_token: 'TRUE'
   options:
     parameters:
       view_template:
-        type: entity:view_template
+        type: entity:canvas_view_template
   methods:
     - POST

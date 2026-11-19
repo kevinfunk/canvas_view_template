@@ -33,3 +33,5 @@ live_preview:
     js/live-preview.js: {}
   dependencies:
     - core/drupal
+    - core/drupalSettings
+    - core/drupal.announce

@@ -10,7 +10,7 @@ use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateCondit
 use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplatePlaceholder;
 use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateRepeater;
 use Drupal\canvas_view_template\Render\ViewConditions;
-use Drupal\canvas_view_template\Render\ViewTemplateRenderer;
+use Drupal\canvas_view_template\Render\ViewRenderData;
 use Drupal\Core\Form\FormState;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -105,9 +105,9 @@ final class ViewTemplateConditionTest extends ViewTemplateKernelTestBase {
       'label' => 'Test',
       'component_tree' => [$condition, $child],
     ]);
-    $result = $this->container->get(ViewTemplateRenderer::class)->render($view_template, '', '', ['#markup' => 'THE_PAGER'], [], 0, ['more' => ['#markup' => 'THE_MORE']]);
+    $result = $this->renderWithData($view_template, new ViewRenderData(pager: ['#markup' => 'THE_PAGER'], areas: ['more' => ['#markup' => 'THE_MORE']]));
     self::assertStringContainsString('THE_PAGER', (string) $this->renderer->renderInIsolation($result));
-    $result = $this->container->get(ViewTemplateRenderer::class)->render($view_template, '', '', ['#markup' => 'THE_PAGER']);
+    $result = $this->renderWithData($view_template, new ViewRenderData(pager: ['#markup' => 'THE_PAGER']));
     self::assertStringNotContainsString('THE_PAGER', (string) $this->renderer->renderInIsolation($result));
   }
 
@@ -150,14 +150,13 @@ final class ViewTemplateConditionTest extends ViewTemplateKernelTestBase {
       'label' => 'Test',
       'component_tree' => [$repeater, $condition, $item],
     ]);
-    $renderer = $this->container->get(ViewTemplateRenderer::class);
 
-    $result = $renderer->render($view_template, '', '', '', ['ROW_A', 'ROW_B'], 0, ['header' => ['#markup' => 'H']]);
+    $result = $this->renderWithData($view_template, new ViewRenderData(rowRenders: ['ROW_A', 'ROW_B'], areas: ['header' => ['#markup' => 'H']]));
     $rendered = (string) $this->renderer->renderInIsolation($result);
     self::assertStringContainsString('ROW_A', $rendered);
     self::assertStringContainsString('ROW_B', $rendered);
 
-    $result = $renderer->render($view_template, '', '', '', ['ROW_A', 'ROW_B'], 0, []);
+    $result = $this->renderWithData($view_template, new ViewRenderData(rowRenders: ['ROW_A', 'ROW_B']));
     $rendered = (string) $this->renderer->renderInIsolation($result);
     self::assertStringNotContainsString('ROW_A', $rendered);
     self::assertStringNotContainsString('ROW_B', $rendered);
@@ -195,7 +194,7 @@ final class ViewTemplateConditionTest extends ViewTemplateKernelTestBase {
    *   The facts about the view.
    */
   private function renderTemplate(ViewTemplate $view_template, array $facts): string {
-    $result = $this->container->get(ViewTemplateRenderer::class)->render($view_template, '', '', ['#markup' => 'THE_PAGER'], [], 0, [], [], [], $facts);
+    $result = $this->renderWithData($view_template, new ViewRenderData(pager: ['#markup' => 'THE_PAGER'], facts: $facts));
     return (string) $this->renderer->renderInIsolation($result);
   }
 

@@ -53,14 +53,7 @@ final class ViewTemplateLivePreviewAssetsTest extends ViewTemplateKernelTestBase
    */
   protected function setUp(): void {
     parent::setUp();
-    $this->installEntitySchema('node');
-    $this->installEntitySchema('canvas_page');
-    $this->installEntitySchema('path_alias');
-    $this->installSchema('node', ['node_access']);
-    $this->installSchema('system', ['sequences']);
-    $this->container->get('theme_installer')->install(['stark']);
-    $this->config('system.theme')->set('default', 'stark')->save();
-    $this->container->get('theme.manager')->setActiveTheme($this->container->get('theme.initialization')->initTheme('stark'));
+    $this->installNodeSupport();
     $this->setUpCurrentUser(['uid' => 2], ['access content', 'bypass node access']);
     $this->container->get(ComponentSourceManager::class)
       ->generateComponents(SingleDirectoryComponent::SOURCE_PLUGIN_ID, ['canvas_test_sdc:date']);

@@ -1,7 +1,7 @@
 /*
  * Styles the "View templates" panel after Canvas's own Templates panel, using
  * the Radix Themes light scales (slate, blue, green). Values compared with
- * Canvas 1.12.0; see the note in dialog.css on re-checking.
+ * Canvas 1.13.0; see the note in dialog.css on re-checking.
  */
 :root {
   --slate-3: #f0f0f3;
@@ -132,7 +132,7 @@ button, input { font: inherit; color: inherit; }
   border: 0;
   border-radius: var(--radius-3);
   background: none;
-  text-align: left;
+  text-align: start;
   cursor: pointer;
 }
 .node__icon { display: flex; flex-shrink: 0; color: var(--green-9); }
@@ -151,7 +151,7 @@ button, input { font: inherit; color: inherit; }
   flex-shrink: 0;
   width: 0;
   height: 24px;
-  margin-right: 0;
+  margin-inline-end: 0;
   padding: 0;
   overflow: hidden;
   border: 0;
@@ -164,7 +164,11 @@ button, input { font: inherit; color: inherit; }
 .node:hover .node__dots,
 .node:focus-within .node__dots,
 .node--menu-open .node__dots,
-.node--keep .node__dots { width: 24px; margin-right: 4px; opacity: 1; }
+.node--keep .node__dots { width: 24px; margin-inline-end: 4px; opacity: 1; }
+/* No hover on touch screens: keep the actions button in view. */
+@media (hover: none) {
+  .node__dots { width: 24px; margin-inline-end: 4px; opacity: 1; }
+}
 
 .error { margin: 0 0 12px; color: var(--red-11); }
 

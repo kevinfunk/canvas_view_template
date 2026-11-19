@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\canvas_view_template\Kernel;
 
-use Drupal\canvas\Entity\Component;
 use Drupal\canvas\Entity\PageVariant;
 use Drupal\canvas\Render\PreviewEnvelope;
 use Drupal\canvas_view_template\Entity\ViewTemplate;
@@ -68,13 +67,7 @@ final class ViewTemplateHardeningTest extends ViewTemplateKernelTestBase {
    */
   protected function setUp(): void {
     parent::setUp();
-    $this->installEntitySchema('node');
-    $this->installEntitySchema('canvas_page');
-    $this->installEntitySchema('path_alias');
-    $this->installSchema('node', ['node_access']);
-    $this->container->get('theme_installer')->install(['stark']);
-    $this->config('system.theme')->set('default', 'stark')->save();
-    $this->container->get('theme.manager')->setActiveTheme($this->container->get('theme.initialization')->initTheme('stark'));
+    $this->installNodeSupport();
     $this->setUpCurrentUser(['uid' => 2], ['access content']);
     NodeType::create(['type' => 'article', 'name' => 'Article'])->save();
   }
@@ -86,7 +79,7 @@ final class ViewTemplateHardeningTest extends ViewTemplateKernelTestBase {
     for ($i = 1; $i <= 25; $i++) {
       Node::create(['type' => 'article', 'title' => "Article $i", 'status' => 1])->save();
     }
-    $this->createTemplate('summary_template', [$this->item(ViewTemplateSummary::SOURCE_PLUGIN_ID . '.' . ViewTemplateSummary::LOCAL_ID)]);
+    $this->createTemplate('summary_template', [$this->treeItem(ViewTemplateSummary::SOURCE_PLUGIN_ID . '.' . ViewTemplateSummary::LOCAL_ID)]);
     $mini = ['type' => 'mini', 'options' => ['items_per_page' => 10, 'offset' => 0]];
     $this->createView('summary_view', 'summary_template', $mini);
 
@@ -113,7 +106,7 @@ final class ViewTemplateHardeningTest extends ViewTemplateKernelTestBase {
   public function testFallbackCarriesTemplateCacheTag(): void {
     // No results: with rows, the fallback would render the style's own
     // template, which this module's style plugin mis-registers in tests.
-    $template = $this->createTemplate('fallback_template', [$this->item(ViewTemplateTitle::SOURCE_PLUGIN_ID . '.' . ViewTemplateTitle::LOCAL_ID)]);
+    $template = $this->createTemplate('fallback_template', [$this->treeItem(ViewTemplateTitle::SOURCE_PLUGIN_ID . '.' . ViewTemplateTitle::LOCAL_ID)]);
     $template->disable()->save();
     $this->createView('fallback_view', 'fallback_template');
 
@@ -292,8 +285,8 @@ final class ViewTemplateHardeningTest extends ViewTemplateKernelTestBase {
    * The editor preview varies by user, is not cached, and warns about misuse.
    */
   public function testPreviewCacheabilityAndWarning(): void {
-    $rows = $this->item(ViewTemplatePlaceholder::SOURCE_PLUGIN_ID . '.' . ViewTemplatePlaceholder::VIEW_ROWS_LOCAL_ID);
-    $repeater = $this->item('canvas_view_template_repeater.view_repeater');
+    $rows = $this->treeItem(ViewTemplatePlaceholder::SOURCE_PLUGIN_ID . '.' . ViewTemplatePlaceholder::VIEW_ROWS_LOCAL_ID);
+    $repeater = $this->treeItem('canvas_view_template_repeater.view_repeater');
     $rows_inside = ['parent_uuid' => $repeater['uuid'], 'slot' => 'item'] + $rows;
     $subscriber = $this->container->get('canvas_view_template.preview_subscriber');
     $respond = function (array $tree) use ($subscriber): array {
@@ -377,20 +370,6 @@ final class ViewTemplateHardeningTest extends ViewTemplateKernelTestBase {
         'default' => ['display_plugin' => 'default', 'id' => 'default', 'display_options' => $options],
       ],
     ])->save();
-  }
-
-  /**
-   * Builds a root-level tree item for a component.
-   */
-  private function item(string $component_id): array {
-    $component = Component::load($component_id);
-    self::assertNotNull($component, $component_id);
-    return [
-      'uuid' => \Drupal::service('uuid')->generate(),
-      'component_id' => $component_id,
-      'component_version' => $component->getActiveVersion(),
-      'inputs' => $component->getComponentSource()->getDefaultExplicitInput(),
-    ];
   }
 
 }

@@ -29,6 +29,20 @@ final class ViewTemplateEditorTest extends WebDriverTestBase {
   private const string KEY_ESCAPE = "\u{E00C}";
 
   /**
+   * The row menu's sizes in px: Canvas's menus (Radix Themes, size 2).
+   */
+  private const array MENU_SIZES = [
+    'padding' => 8,
+    'radius' => 8,
+    'font' => 14,
+    'itemHeight' => 32,
+    'labelHeight' => 32,
+    'itemPadding' => 12,
+    'lineHeight' => 1,
+    'lineMargin' => 8,
+  ];
+
+  /**
    * {@inheritdoc}
    */
   protected static $modules = [
@@ -139,15 +153,15 @@ final class ViewTemplateEditorTest extends WebDriverTestBase {
    */
   public function testFullWidthPreviewShowsLiveContentAndPages(): void {
     $this->openEditor();
-    $this->assertSession()->waitForField('Preview with view', 30000);
+    self::assertNotNull($this->assertSession()->waitForField('Preview with view', 30000));
     $this->openFullWidthPreview();
 
-    $this->assertPreviewContains('Alpha article');
-    $this->assertPreviewContains('Bravo article');
+    $this->assertFrameContains('Alpha article');
+    $this->assertFrameContains('Bravo article');
     $this->assertPreviewDoesNotContain('Charlie article');
 
     $this->getSession()->evaluateScript("(function () { var link = document.querySelector('.pager__item--next a, a[rel=\"next\"]'); if (!link) { throw new Error('No next link'); } link.click(); })()");
-    $this->assertPreviewContains('Charlie article');
+    $this->assertFrameContains('Charlie article');
     $this->assertPreviewDoesNotContain('Alpha article');
     $this->getSession()->switchToIFrame();
   }
@@ -191,21 +205,13 @@ final class ViewTemplateEditorTest extends WebDriverTestBase {
     ])->save();
 
     $this->getSession()->resizeWindow(1600, 1000);
-    $this->drupalGet('/canvas/editor/view_template/nested_editor_test');
-    $frame = $this->assertSession()->waitForElement('css', 'iframe[data-canvas-iframe]', 30000);
-    self::assertNotNull($frame);
-    $this->getSession()->evaluateScript("document.querySelector('iframe[data-canvas-iframe]').setAttribute('name', 'cvt-edit-preview');");
-    $this->getSession()->switchToIFrame('cvt-edit-preview');
-    self::assertTrue(
-      (bool) $this->getSession()->getPage()->waitFor(30, fn () => \str_contains($this->getSession()->getPage()->getText(), 'cannot be placed inside another')),
-      'The editor preview never showed the nested repeater warning.',
-    );
+    $this->drupalGet('/canvas/editor/canvas_view_template/nested_editor_test');
+    $this->enterFrame('iframe[data-canvas-iframe]', 'cvt-edit-preview');
+    $this->assertFrameContains('cannot be placed inside another');
     $this->getSession()->switchToIFrame();
 
-    $this->drupalGet('/canvas/editor/view_template/editor_test');
-    $this->assertSession()->waitForElement('css', 'iframe[data-canvas-iframe]', 30000);
-    $this->getSession()->evaluateScript("document.querySelector('iframe[data-canvas-iframe]').setAttribute('name', 'cvt-edit-preview');");
-    $this->getSession()->switchToIFrame('cvt-edit-preview');
+    $this->drupalGet('/canvas/editor/canvas_view_template/editor_test');
+    $this->enterFrame('iframe[data-canvas-iframe]', 'cvt-edit-preview');
     // The warning would be rendered along with the placeholders.
     self::assertNotNull($this->assertSession()->waitForElement('css', '.cvt-marker--rows', 30000), 'The editor preview never rendered.');
     self::assertStringNotContainsString('cannot be placed inside another', $this->getSession()->getPage()->getText());
@@ -238,9 +244,9 @@ final class ViewTemplateEditorTest extends WebDriverTestBase {
     self::assertSame('second_layout', $dialog->findField('Machine name')->getValue());
     $dialog->pressButton('Duplicate and edit');
 
-    $this->assertSession()->waitForElement('css', 'iframe[data-canvas-iframe]', 30000);
-    self::assertStringContainsString('/canvas/editor/view_template/second_layout', $this->getSession()->getCurrentUrl());
-    $storage = \Drupal::entityTypeManager()->getStorage('view_template');
+    self::assertNotNull($this->assertSession()->waitForElement('css', 'iframe[data-canvas-iframe]', 30000));
+    self::assertStringContainsString('/canvas/editor/canvas_view_template/second_layout', $this->getSession()->getCurrentUrl());
+    $storage = \Drupal::entityTypeManager()->getStorage('canvas_view_template');
     $storage->resetCache();
     $copy = $storage->load('second_layout');
     self::assertNotNull($copy);
@@ -269,9 +275,9 @@ final class ViewTemplateEditorTest extends WebDriverTestBase {
     self::assertSame([], \preg_grep('/^DELETE /', $requests), 'The panel sent a DELETE.');
     $this->getSession()->switchToIFrame();
 
-    $status = $this->getSession()->evaluateScript("(async function () { var token = await (await fetch('/session/token')).text(); var response = await fetch('/canvas/api/v0/config/view_template/editor_test', { method: 'DELETE', headers: { 'X-CSRF-Token': token } }); return response.status; })()");
+    $status = $this->getSession()->evaluateScript("(async function () { var token = await (await fetch('/session/token')).text(); var response = await fetch('/canvas/api/v0/config/canvas_view_template/editor_test', { method: 'DELETE', headers: { 'X-CSRF-Token': token } }); return response.status; })()");
     self::assertSame(403, $status);
-    $storage = \Drupal::entityTypeManager()->getStorage('view_template');
+    $storage = \Drupal::entityTypeManager()->getStorage('canvas_view_template');
     $storage->resetCache();
     self::assertNotNull($storage->load('editor_test'));
   }
@@ -296,7 +302,7 @@ final class ViewTemplateEditorTest extends WebDriverTestBase {
     );
     self::assertArrayHasKey('Editor test', $this->panelRows());
     $this->getSession()->switchToIFrame();
-    $storage = \Drupal::entityTypeManager()->getStorage('view_template');
+    $storage = \Drupal::entityTypeManager()->getStorage('canvas_view_template');
     $storage->resetCache();
     self::assertNull($storage->load('unused_template'));
     self::assertNotNull($storage->load('editor_test'));
@@ -338,6 +344,121 @@ final class ViewTemplateEditorTest extends WebDriverTestBase {
   }
 
   /**
+   * A copy that fails validation shows the server's reason and stays open.
+   */
+  public function testPanelShowsWhyDuplicateWasRefused(): void {
+    $rows = ViewTemplatePlaceholder::SOURCE_PLUGIN_ID . '.' . ViewTemplatePlaceholder::VIEW_ROWS_LOCAL_ID;
+    // Two "View rows" is a draft Canvas only rejects when published.
+    ViewTemplate::create([
+      'id' => 'two_rows',
+      'label' => 'Two rows',
+      'component_tree' => [$this->treeItem($rows), $this->treeItem($rows)],
+    ])->save();
+    $this->openPanel();
+    $this->chooseFromRowMenu('Two rows', 'Duplicate');
+    $dialog = $this->assertSession()->waitForElementVisible('css', '.cvt-dialog', 10000);
+    self::assertNotNull($dialog);
+    $dialog->pressButton('Duplicate and edit');
+
+    $error = $this->waitForDialogError();
+    self::assertStringContainsString('Could not duplicate the view template:', $error);
+    self::assertStringContainsString('only one "View rows" placement', $error);
+    // The dialog stays usable.
+    self::assertTrue($this->getSession()->getPage()->find('css', '.cvt-dialog')->findButton('Duplicate and edit')->isVisible());
+    self::assertNull(\Drupal::entityTypeManager()->getStorage('canvas_view_template')->load('copy_of_two_rows'));
+  }
+
+  /**
+   * A machine name that is taken is explained, when creating and duplicating.
+   */
+  public function testPanelExplainsTakenMachineName(): void {
+    $taken = 'A view template with the machine name "editor_test" already exists.';
+    $this->openPanel();
+
+    $this->chooseFromRowMenu('Editor test', 'Duplicate');
+    $dialog = $this->assertSession()->waitForElementVisible('css', '.cvt-dialog', 10000);
+    self::assertNotNull($dialog);
+    $dialog->findField('Machine name')->setValue('editor_test');
+    $dialog->pressButton('Duplicate and edit');
+    self::assertSame($taken, $this->waitForDialogError());
+    self::assertSame('true', $dialog->findField('Machine name')->getAttribute('aria-invalid'));
+    $dialog->pressButton('Cancel');
+    self::assertTrue($this->assertSession()->waitForElementRemoved('css', '.cvt-overlay', 10000));
+
+    // "Editor test" makes the machine name `editor_test`.
+    $this->getSession()->switchToIFrame('cvt-panel');
+    $this->getSession()->getPage()->find('css', '#new-button')->click();
+    $this->getSession()->switchToIFrame();
+    $dialog = $this->assertSession()->waitForElementVisible('css', '.cvt-dialog', 10000);
+    self::assertNotNull($dialog);
+    $dialog->findField('Label')->setValue('Editor test');
+    self::assertSame('editor_test', $dialog->findField('Machine name')->getValue());
+    $dialog->pressButton('Create and edit');
+    self::assertSame($taken, $this->waitForDialogError());
+    self::assertSame('true', $dialog->findField('Machine name')->getAttribute('aria-invalid'));
+    self::assertCount(1, \Drupal::entityTypeManager()->getStorage('canvas_view_template')->loadByProperties(['label' => 'Editor test']));
+  }
+
+  /**
+   * Submitting an exposed filter in the full-width preview updates it.
+   */
+  public function testPreviewAppliesExposedFilter(): void {
+    $this->createFilterFixture();
+    $this->openFilterPreview();
+    $this->assertFrameContains('Alpha article');
+
+    $this->applyTitleFilter('Charlie');
+    $this->assertFrameContains('Charlie article');
+    self::assertTrue($this->waitForFrameText('Alpha article', FALSE), 'The unfiltered rows stayed.');
+    $this->getSession()->switchToIFrame();
+  }
+
+  /**
+   * Content first shown on a later page gets its styles from that page's load.
+   */
+  public function testPreviewPagerLoadsStylesFirstNeededOnLaterPage(): void {
+    $this->createPagerFixture();
+    $this->openEditor('pager_test');
+    self::assertNotNull($this->assertSession()->waitForField('Preview with view', 30000));
+    $this->openFullWidthPreview();
+    // The first page shows only the pager; the repeater is for page 2. The
+    // live block is hidden until the script has set up its click handling.
+    self::assertNotNull($this->assertSession()->waitForElementVisible('css', '.cvt-live-preview .pager', 30000), 'The live preview never loaded.');
+    $stylesheet = "document.querySelector('link[href*=\"field.css\"]')";
+    self::assertFalse($this->getSession()->evaluateScript("$stylesheet !== null"), 'The field styles were already loaded.');
+    $this->assertPreviewDoesNotContain('Charlie article');
+
+    $this->getSession()->evaluateScript("document.querySelector('.cvt-live-preview .pager__item--next a, .cvt-live-preview a[rel=\"next\"]').click()");
+    $this->assertFrameContains('Charlie article');
+    self::assertTrue((bool) $this->getSession()->wait(30000, "$stylesheet !== null"), 'The styles for the later page never loaded.');
+    $this->getSession()->switchToIFrame();
+  }
+
+  /**
+   * A failed request shows a notice and keeps the content; a retry clears it.
+   */
+  public function testPreviewKeepsContentWhenRequestFails(): void {
+    $this->createFilterFixture();
+    $this->openFilterPreview();
+    $this->assertFrameContains('Alpha article');
+
+    // The preview calls the global `fetch`; a server error stands in.
+    $this->getSession()->executeScript("window.cvtFetch = window.fetch; window.fetch = function () { return Promise.resolve(new Response('', { status: 500 })); }");
+    $this->applyTitleFilter('Charlie');
+    $notice = $this->assertSession()->waitForElementVisible('css', '.cvt-preview-error[role="alert"]', 30000);
+    self::assertNotNull($notice, 'No error notice appeared.');
+    self::assertStringContainsString('The preview could not load this view.', $notice->getText());
+    self::assertStringContainsString('error 500', $notice->getText());
+    self::assertStringContainsString('Alpha article', $this->getSession()->getPage()->getText());
+
+    $this->getSession()->executeScript('window.fetch = window.cvtFetch');
+    $this->applyTitleFilter('Charlie');
+    $this->assertFrameContains('Charlie article');
+    self::assertTrue((bool) $this->getSession()->wait(30000, "document.querySelector('.cvt-preview-error').hidden"), 'The notice stayed after a good load.');
+    $this->getSession()->switchToIFrame();
+  }
+
+  /**
    * Asserts focus is on a row's button in the panel, from the editor page.
    */
   private function assertRowButtonFocused(string $selector): void {
@@ -366,18 +487,10 @@ final class ViewTemplateEditorTest extends WebDriverTestBase {
     self::assertSame($template_label, $menu->find('css', '.cvt-menu__label')->getText());
     $frame = $this->getSession()->evaluateScript("(function () { var box = document.querySelector('iframe[name=\"cvt-panel\"]').getBoundingClientRect(); return { left: box.left, top: box.top }; })()");
     $placed = $this->getSession()->evaluateScript("(function () { var box = document.querySelector('.cvt-menu').getBoundingClientRect(); return { left: box.left, top: box.top }; })()");
-    // The sizes Canvas's own menus have (Radix Themes, size 2).
-    $sizes = $this->getSession()->evaluateScript("(function () { var menu = document.querySelector('.cvt-menu'); var item = menu.querySelector('.cvt-menu__item'); var label = menu.querySelector('.cvt-menu__label'); var line = menu.querySelector('.cvt-menu__separator'); var style = function (node, name) { return getComputedStyle(node)[name]; }; return { padding: style(menu, 'paddingLeft'), radius: style(menu, 'borderTopLeftRadius'), font: style(item, 'fontSize'), itemHeight: style(item, 'height'), labelHeight: style(label, 'height'), itemPadding: style(item, 'paddingLeft'), lineHeight: style(line, 'height'), lineMargin: style(line, 'marginTop') }; })()");
-    self::assertEquals([
-      'padding' => '8px',
-      'radius' => '8px',
-      'font' => '14px',
-      'itemHeight' => '32px',
-      'labelHeight' => '32px',
-      'itemPadding' => '12px',
-      'lineHeight' => '1px',
-      'lineMargin' => '8px',
-    ], $sizes);
+    $sizes = $this->getSession()->evaluateScript("(function () { var menu = document.querySelector('.cvt-menu'); var item = menu.querySelector('.cvt-menu__item'); var label = menu.querySelector('.cvt-menu__label'); var line = menu.querySelector('.cvt-menu__separator'); var style = function (node, name) { return parseFloat(getComputedStyle(node)[name]); }; return { padding: style(menu, 'paddingLeft'), radius: style(menu, 'borderTopLeftRadius'), font: style(item, 'fontSize'), itemHeight: style(item, 'height'), labelHeight: style(label, 'height'), itemPadding: style(item, 'paddingLeft'), lineHeight: style(line, 'height'), lineMargin: style(line, 'marginTop') }; })()");
+    foreach (self::MENU_SIZES as $name => $expected) {
+      self::assertEqualsWithDelta($expected, $sizes[$name], 1, "The menu's $name differs from Canvas's.");
+    }
     self::assertEqualsWithDelta($frame['left'] + $button['left'], $placed['left'], 12, 'The menu is not beside its button.');
     self::assertEqualsWithDelta($frame['top'] + $button['bottom'], $placed['top'], 12, 'The menu is not below its button.');
     $this->getSession()->evaluateScript(\sprintf("Array.from(document.querySelectorAll('.cvt-menu__item')).find(function (item) { return item.textContent === '%s'; }).click();", $item));
@@ -389,10 +502,7 @@ final class ViewTemplateEditorTest extends WebDriverTestBase {
   private function openPanel(): void {
     $this->getSession()->resizeWindow(1600, 1000);
     $this->drupalGet('/canvas/app/view_templates');
-    $frame = $this->assertSession()->waitForElement('css', 'iframe[src*="extension/index.html"]', 30000);
-    self::assertNotNull($frame);
-    $this->getSession()->evaluateScript("document.querySelector('iframe[src*=\"extension/index.html\"]').setAttribute('name', 'cvt-panel');");
-    $this->getSession()->switchToIFrame('cvt-panel');
+    $this->enterFrame('iframe[src*="extension/index.html"]', 'cvt-panel');
     // Rows are drawn once the usage is known.
     self::assertNotNull($this->assertSession()->waitForElement('css', '.node .node__usage', 30000), 'The panel never listed the templates.');
   }
@@ -412,12 +522,197 @@ final class ViewTemplateEditorTest extends WebDriverTestBase {
   }
 
   /**
-   * Opens the editor for the test template.
+   * Waits for the open dialog's error and returns its text.
    */
-  private function openEditor(): void {
+  private function waitForDialogError(): string {
+    $error = $this->assertSession()->waitForElementVisible('css', '.cvt-dialog .cvt-error', 10000);
+    self::assertNotNull($error, 'The dialog showed no error.');
+    return $error->getText();
+  }
+
+  /**
+   * Builds an item for a component's tree, with its default inputs.
+   *
+   * @param string $component_id
+   *   The component's id.
+   * @param string|null $parent_uuid
+   *   The parent item's uuid, for an item inside a slot.
+   * @param string|null $slot
+   *   The parent's slot.
+   * @param array<string, mixed>|null $inputs
+   *   Inputs replacing the defaults.
+   *
+   * @return array<string, mixed>
+   *   The tree item.
+   */
+  private function treeItem(string $component_id, ?string $parent_uuid = NULL, ?string $slot = NULL, ?array $inputs = NULL): array {
+    $component = Component::load($component_id);
+    self::assertNotNull($component, $component_id);
+    $item = [
+      'uuid' => \Drupal::service('uuid')->generate(),
+      'component_id' => $component_id,
+      'component_version' => $component->getActiveVersion(),
+      'inputs' => $inputs ?? $component->getComponentSource()->getDefaultExplicitInput(),
+    ];
+    if ($parent_uuid !== NULL) {
+      $item['parent_uuid'] = $parent_uuid;
+      $item['slot'] = $slot;
+    }
+    return $item;
+  }
+
+  /**
+   * Creates a page-display view of the articles, shown through a template.
+   *
+   * @param string $id
+   *   The view id, also its page path.
+   * @param string $template
+   *   The view template id.
+   * @param array<string, mixed> $options
+   *   Display options added to the defaults, such as `filters`.
+   */
+  private function createListView(string $id, string $template, array $options = []): void {
+    View::create([
+      'id' => $id,
+      'label' => $id,
+      'base_table' => 'node_field_data',
+      'display' => [
+        'default' => [
+          'display_plugin' => 'default',
+          'id' => 'default',
+          'display_options' => $options + [
+            'style' => [
+              'type' => ViewTemplateStyle::PLUGIN_ID,
+              'options' => [ViewTemplateStyle::OPTION_KEY => $template],
+            ],
+            'row' => ['type' => 'fields'],
+            'fields' => [
+              'title' => [
+                'id' => 'title',
+                'table' => 'node_field_data',
+                'field' => 'title',
+                'label' => 'Title',
+                'entity_type' => 'node',
+                'entity_field' => 'title',
+                'plugin_id' => 'field',
+              ],
+            ],
+            'sorts' => [
+              'nid' => [
+                'id' => 'nid',
+                'table' => 'node_field_data',
+                'field' => 'nid',
+                'order' => 'ASC',
+                'plugin_id' => 'standard',
+              ],
+            ],
+            'pager' => ['type' => 'full', 'options' => ['items_per_page' => 2]],
+          ],
+        ],
+        'page_1' => [
+          'display_plugin' => 'page',
+          'id' => 'page_1',
+          'display_title' => 'Page',
+          'display_options' => ['path' => $id],
+        ],
+      ],
+    ])->save();
+  }
+
+  /**
+   * Creates a view with a "Title" exposed filter, and its template.
+   */
+  private function createFilterFixture(): void {
+    $prefix = ViewTemplatePlaceholder::SOURCE_PLUGIN_ID . '.';
+    ViewTemplate::create([
+      'id' => 'filter_test',
+      'label' => 'Filter test',
+      'component_tree' => [
+        $this->treeItem($prefix . ViewTemplatePlaceholder::VIEW_EXPOSED_FILTERS_LOCAL_ID),
+        $this->treeItem($prefix . ViewTemplatePlaceholder::VIEW_ROWS_LOCAL_ID),
+      ],
+    ])->save();
+    $this->createListView('filter_test_view', 'filter_test', [
+      'filters' => [
+        'title' => [
+          'id' => 'title',
+          'table' => 'node_field_data',
+          'field' => 'title',
+          'entity_type' => 'node',
+          'entity_field' => 'title',
+          'plugin_id' => 'string',
+          'operator' => 'contains',
+          'exposed' => TRUE,
+          'expose' => ['identifier' => 'title', 'label' => 'Title', 'operator_id' => 'title_op'],
+        ],
+      ],
+    ]);
+  }
+
+  /**
+   * Creates a view whose field only shows on page 2, and its template.
+   *
+   * The field is the first thing to need `field.css`, so it can only arrive
+   * with the second page's load.
+   */
+  private function createPagerFixture(): void {
+    $repeater_id = 'canvas_view_template_repeater.view_repeater';
+    $repeater = $this->treeItem($repeater_id);
+    $repeater['inputs'] = [
+      'page_condition_mode' => 'only',
+      'page_condition_page' => 2,
+    ] + $repeater['inputs'];
+    ViewTemplate::create([
+      'id' => 'pager_test',
+      'label' => 'Pager test',
+      'component_tree' => [
+        $repeater,
+        $this->treeItem(
+          'canvas_view_template_field.view_field',
+          $repeater['uuid'],
+          'item',
+          ['field' => 'title', 'element' => 'div', 'label' => 'inline'],
+        ),
+        $this->treeItem(ViewTemplatePlaceholder::SOURCE_PLUGIN_ID . '.' . ViewTemplatePlaceholder::VIEW_PAGER_LOCAL_ID),
+      ],
+    ])->save();
+    $this->createListView('pager_test_view', 'pager_test');
+  }
+
+  /**
+   * Opens the filter fixture's full-width preview and switches into it.
+   */
+  private function openFilterPreview(): void {
+    $this->openEditor('filter_test');
+    self::assertNotNull($this->assertSession()->waitForField('Preview with view', 30000));
+    $this->openFullWidthPreview();
+  }
+
+  /**
+   * Enters a value in the preview's "Title" filter and applies it.
+   */
+  private function applyTitleFilter(string $value): void {
+    $page = $this->getSession()->getPage();
+    $field = $this->assertSession()->waitForElementVisible('css', '.cvt-live-preview input[name="title"]', 30000);
+    self::assertNotNull($field, 'The exposed filter never showed.');
+    $field->setValue($value);
+    $page->pressButton('Apply');
+  }
+
+  /**
+   * Waits until the frame's text does (or does not) contain a string.
+   */
+  private function waitForFrameText(string $text, bool $present): bool {
+    return (bool) $this->getSession()->getPage()->waitFor(30, fn (): bool => \str_contains($this->getSession()->getPage()->getText(), $text) === $present);
+  }
+
+  /**
+   * Opens the editor for a view template (the test template by default).
+   */
+  private function openEditor(string $template = 'editor_test'): void {
     $this->getSession()->resizeWindow(1600, 1000);
-    $this->drupalGet('/canvas/editor/view_template/editor_test');
-    $this->assertSession()->waitForElement('css', 'iframe[data-canvas-iframe]', 30000);
+    $this->drupalGet('/canvas/editor/canvas_view_template/' . $template);
+    self::assertNotNull($this->assertSession()->waitForElement('css', 'iframe[data-canvas-iframe]', 30000), 'The editor never loaded.');
   }
 
   /**
@@ -436,19 +731,26 @@ final class ViewTemplateEditorTest extends WebDriverTestBase {
     $this->clickButton('Preview');
     // Canvas's full-width frame: titled, and without the editor's marker.
     $selector = 'iframe[title="Page preview"]:not([data-canvas-iframe])';
-    $frame = $this->assertSession()->waitForElement('css', $selector, 30000);
-    self::assertNotNull($frame);
-    $this->getSession()->evaluateScript(\sprintf("document.querySelector('%s').setAttribute('name', 'cvt-full-preview');", \addslashes($selector)));
-    $this->getSession()->switchToIFrame('cvt-full-preview');
+    $this->enterFrame($selector, 'cvt-full-preview');
   }
 
   /**
-   * Waits for text in the full-width preview frame.
+   * Waits for an iframe, names it, and switches into it.
    */
-  private function assertPreviewContains(string $text): void {
+  private function enterFrame(string $selector, string $name): void {
+    $frame = $this->assertSession()->waitForElement('css', $selector, 30000);
+    self::assertNotNull($frame, "No frame matches $selector.");
+    $this->getSession()->evaluateScript(\sprintf("document.querySelector('%s').setAttribute('name', '%s');", \addslashes($selector), $name));
+    $this->getSession()->switchToIFrame($name);
+  }
+
+  /**
+   * Waits for text in the frame the session is in.
+   */
+  private function assertFrameContains(string $text): void {
     self::assertTrue(
       (bool) $this->getSession()->getPage()->waitFor(30, fn () => \str_contains($this->getSession()->getPage()->getText(), $text)),
-      "The preview never showed \"$text\".",
+      "The frame never showed \"$text\".",
     );
   }
 

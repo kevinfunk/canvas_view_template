@@ -9,7 +9,7 @@ use Drupal\Core\Routing\RouteSubscriberBase;
 use Symfony\Component\Routing\RouteCollection;
 
 /**
- * Adds "view_template" to Canvas's generic config CRUD API route allowlist.
+ * Adds "canvas_view_template" to Canvas's config CRUD API route allowlist.
  *
  * Canvas's `canvas.api.config.{get,patch,delete,post,list}` routes (defined
  * in canvas.routing.yml) constrain their `canvas_config_entity_type_id`
@@ -46,7 +46,12 @@ final class ViewTemplateRouteSubscriber extends RouteSubscriberBase {
         continue;
       }
       $requirement = $route->getRequirement('canvas_config_entity_type_id');
-      if ($requirement === NULL || \str_contains($requirement, ViewTemplate::ENTITY_TYPE_ID)) {
+      if ($requirement === NULL) {
+        continue;
+      }
+      // Whole alternatives, so a longer id containing ours does not count.
+      $allowed = \explode('|', \trim($requirement, '()'));
+      if (\in_array(ViewTemplate::ENTITY_TYPE_ID, $allowed, TRUE)) {
         continue;
       }
       $route->setRequirement(

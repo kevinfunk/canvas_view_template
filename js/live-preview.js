@@ -30,15 +30,6 @@
   var queued = null;
   var notice = null;
 
-  function t(text, args) {
-    if (window.Drupal && Drupal.t) {
-      return Drupal.t(text, args);
-    }
-    return Object.keys(args || {}).reduce(function (result, key) {
-      return result.replace(key, args[key]);
-    }, text);
-  }
-
   // Shows why the content didn't change; the content already shown stays.
   function showError(failure) {
     if (!notice) {
@@ -49,21 +40,21 @@
     }
     var status = failure && failure.status ? failure.status : 0;
     var reason;
-    var advice = t('Check the view for errors, then try again.');
+    var advice = Drupal.t('Check the view for errors, then try again.');
     if (failure && failure.unreadable) {
-      reason = t('The server sent something the preview could not read.');
+      reason = Drupal.t('The server sent something the preview could not read.');
     }
     else if (status === 403) {
-      reason = t('The server answered with error @status.', { '@status': status });
-      advice = t('Your session may have expired: reload the editor, then try again.');
+      reason = Drupal.t('The server answered with error @status.', { '@status': status });
+      advice = Drupal.t('Your session may have expired: reload the editor, then try again.');
     }
     else if (status) {
-      reason = t('The server answered with error @status.', { '@status': status });
+      reason = Drupal.t('The server answered with error @status.', { '@status': status });
     }
     else {
-      reason = t('The server could not be reached.');
+      reason = Drupal.t('The server could not be reached.');
     }
-    notice.textContent = t('The preview could not load this view.') + ' ' + reason + ' ' + advice;
+    notice.textContent = Drupal.t('The preview could not load this view.') + ' ' + reason + ' ' + advice;
     notice.hidden = false;
   }
 
@@ -190,6 +181,69 @@
     });
   }
 
+  // Drupal.attachBehaviors() on the new content only. Canvas's own behaviors
+  // need `document` (they read `context.body`), so they get that.
+  function attachToLive(settings) {
+    var behaviors = window.Drupal && Drupal.behaviors;
+    if (!behaviors) {
+      return;
+    }
+    Object.keys(behaviors).forEach(function (name) {
+      var behavior = behaviors[name];
+      if (!behavior || typeof behavior.attach !== 'function') {
+        return;
+      }
+      try {
+        behavior.attach(name.indexOf('canvas') === 0 ? document : live, settings);
+      }
+      catch (error) {
+        Drupal.throwError(error);
+      }
+    });
+  }
+
+  function attrSelector(name, value) {
+    return '[' + name + '="' + String(value).replace(/["\\]/g, '\\$&') + '"]';
+  }
+
+  // What has focus inside the live content, as ways to find it again.
+  function rememberFocus() {
+    var active = document.activeElement;
+    if (!active || active === live || !live.contains(active)) {
+      return null;
+    }
+    var selectors = [];
+    ['data-drupal-selector', 'id', 'name'].forEach(function (name) {
+      var value = active.getAttribute(name);
+      if (value) {
+        selectors.push(active.tagName.toLowerCase() + attrSelector(name, value));
+      }
+    });
+    var href = active.tagName === 'A' ? active.getAttribute('href') : null;
+    if (href) {
+      selectors.push('a' + attrSelector('href', href));
+    }
+    return selectors;
+  }
+
+  // The same control if it is still there, else the content itself, so
+  // keyboard users do not start again from the top of the page.
+  function restoreFocus(selectors) {
+    if (!selectors) {
+      return;
+    }
+    var target = null;
+    selectors.some(function (selector) {
+      target = live.querySelector(selector);
+      return target;
+    });
+    if (!target) {
+      live.setAttribute('tabindex', '-1');
+      target = live;
+    }
+    target.focus({ preventScroll: true });
+  }
+
   function load(query) {
     if (!endpoint) {
       return;
@@ -211,11 +265,14 @@
         applySettings(result.settings);
         return loadAssets(result).then(function () {
           var settings = window.drupalSettings;
+          var focus = rememberFocus();
           detachFromLive(settings);
           live.innerHTML = result.html;
           clearError();
-          if (window.Drupal && Drupal.attachBehaviors) {
-            Drupal.attachBehaviors(document, settings);
+          attachToLive(settings);
+          restoreFocus(focus);
+          if (Drupal.announce) {
+            Drupal.announce(Drupal.t('Results updated'));
           }
         });
       })

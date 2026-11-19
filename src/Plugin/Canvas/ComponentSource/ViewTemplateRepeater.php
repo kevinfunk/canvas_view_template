@@ -5,15 +5,11 @@ declare(strict_types=1);
 namespace Drupal\canvas_view_template\Plugin\Canvas\ComponentSource;
 
 use Drupal\canvas\Attribute\ComponentSource;
-use Drupal\canvas\ComponentSource\ComponentSourceBase;
 use Drupal\canvas\ComponentSource\ComponentSourceWithSlotsInterface;
 use Drupal\canvas\Entity\Component;
-use Drupal\canvas\MissingComponentInputsException;
-use Drupal\canvas\Plugin\Field\FieldType\ComponentTreeItem;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\FieldableEntityInterface;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Render\Markup;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Symfony\Component\Validator\ConstraintViolationList;
 use Symfony\Component\Validator\ConstraintViolationListInterface;
@@ -35,14 +31,18 @@ use Symfony\Component\Validator\ConstraintViolationListInterface;
   supportsImplicitInputs: FALSE,
   discovery: FALSE,
 )]
-final class ViewTemplateRepeater extends ComponentSourceBase implements ComponentSourceWithSlotsInterface {
+final class ViewTemplateRepeater extends ViewTemplateComponentSourceBase implements ComponentSourceWithSlotsInterface {
 
   use ViewTemplateMarkerPreviewTrait;
-  use ViewTemplatePageConditionTrait;
-
   public const string SOURCE_PLUGIN_ID = 'canvas_view_template_repeater';
 
   public const string LOCAL_ID = 'view_repeater';
+
+  public const string PAGE_CONDITION_ALL = 'all';
+
+  public const string PAGE_CONDITION_ONLY = 'only';
+
+  public const string PAGE_CONDITION_EXCEPT = 'except';
 
   /**
    * The single slot's name.
@@ -70,46 +70,37 @@ final class ViewTemplateRepeater extends ComponentSourceBase implements Componen
   public const string INPUT_PAGE_CONDITION_PAGE = 'page_condition_page';
 
   /**
-   * The key hydrateComponent() wraps explicit input under.
-   */
-  private const string EXPLICIT_INPUT_NAME = 'settings';
-
-  /**
-   * The tree UUID of the instance most recently suspended for rendering.
+   * Reads stored settings as safe values, whatever was stored.
    *
-   * Repeaters share one plugin instance, so the renderer cannot tell them
-   * apart by class. Set just before suspending, read just after.
+   * Config imports and the API can store strings or junk that validation
+   * never saw, and the renderer must not throw on them.
    *
-   * @see \Drupal\canvas_view_template\Render\ViewTemplateRenderer::render()
+   * @return array{limit: int|null, offset: int, mode: string, page: int|null}
+   *   A NULL limit means no limit (0 too), a NULL page no page condition.
    */
-  protected ?string $currentComponentUuid = NULL;
-
-  /**
-   * Gets the tree UUID of the instance most recently suspended.
-   */
-  public function getCurrentComponentUuid(): ?string {
-    return $this->currentComponentUuid;
+  public static function normalizeSettings(mixed $settings): array {
+    $settings = \is_array($settings) ? $settings : [];
+    $limit = self::wholeNumber($settings[self::INPUT_LIMIT] ?? NULL);
+    $page = self::wholeNumber($settings[self::INPUT_PAGE_CONDITION_PAGE] ?? NULL);
+    $mode = $settings[self::INPUT_PAGE_CONDITION_MODE] ?? NULL;
+    return [
+      'limit' => $limit !== NULL && $limit > 0 ? $limit : NULL,
+      'offset' => \max(0, self::wholeNumber($settings[self::INPUT_OFFSET] ?? NULL) ?? 0),
+      'mode' => \in_array($mode, [self::PAGE_CONDITION_ONLY, self::PAGE_CONDITION_EXCEPT], TRUE) ? $mode : self::PAGE_CONDITION_ALL,
+      'page' => $page !== NULL && $page >= 1 ? $page : NULL,
+    ];
   }
 
   /**
-   * {@inheritdoc}
+   * An integer, or a string or float that holds exactly one; else NULL.
    */
-  public function isBroken(): bool {
-    return FALSE;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function determineDefaultFolder(): string {
-    return ViewTemplatePlaceholder::LIBRARY_FOLDER_NAME;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getReferencedPluginClass(): ?string {
-    return NULL;
+  private static function wholeNumber(mixed $value): ?int {
+    return match (TRUE) {
+      \is_int($value) => $value,
+      \is_string($value) && \preg_match('/^\s*-?\d+\s*$/', $value) === 1 => (int) $value,
+      \is_float($value) && \is_finite($value) && $value === \floor($value) => (int) $value,
+      default => NULL,
+    };
   }
 
   /**
@@ -146,12 +137,8 @@ final class ViewTemplateRepeater extends ComponentSourceBase implements Componen
       return;
     }
     $slot_build = $slots[self::SLOT_NAME] ?? [];
-    $uuid = $build['#canvas_component_uuid'] ?? NULL;
-    if (\is_string($uuid)) {
-      // The editor maps a slot to the comments' parent element (the grid).
-      $slot_build['#prefix'] = Markup::create(\sprintf('<!-- canvas-slot-start-%s/%s -->', $uuid, self::SLOT_NAME));
-      $slot_build['#suffix'] = Markup::create(\sprintf('<!-- canvas-slot-end-%s/%s -->', $uuid, self::SLOT_NAME));
-    }
+    // The editor maps a slot to the comments' parent element (the grid).
+    $slot_build = $this->markSlot($slot_build, $build['#canvas_component_uuid'] ?? NULL, self::SLOT_NAME);
     // A dropped Column's `span` needs a CSS grid parent. The outer container
     // draws the "stack of cards" hint, as pseudo-elements on the grid would
     // become grid items.
@@ -173,23 +160,21 @@ final class ViewTemplateRepeater extends ComponentSourceBase implements Componen
     // The renderer resumes with this instance's repeated render.
     // @see \Drupal\canvas_view_template\Render\ViewTemplateRenderer::render()
     if (\Fiber::getCurrent() !== NULL) {
-      $this->currentComponentUuid = $componentUuid;
-      $injected = \Fiber::suspend($this);
+      $injected = $this->suspendFor($componentUuid);
       if (\is_array($injected)) {
         return $injected;
       }
     }
+    if (!$isPreview) {
+      return [];
+    }
     // Nothing injected: editor preview; setSlots() fills the `item` key.
-    $settings = $inputs[self::EXPLICIT_INPUT_NAME] ?? $this->getDefaultExplicitInput();
-    $limit = $settings[self::INPUT_LIMIT] ?? NULL;
-    $offset = $settings[self::INPUT_OFFSET] ?? 0;
-    $chips = [$this->rowsChip($limit === NULL ? NULL : (int) $limit, (int) $offset)];
-    $page_condition_mode = $settings[self::INPUT_PAGE_CONDITION_MODE] ?? self::PAGE_CONDITION_ALL;
-    $page_condition_page = $settings[self::INPUT_PAGE_CONDITION_PAGE] ?? NULL;
-    if ($page_condition_page !== NULL) {
-      $chips[] = match ($page_condition_mode) {
-        self::PAGE_CONDITION_ONLY => $this->t('Page @page only', ['@page' => $page_condition_page]),
-        self::PAGE_CONDITION_EXCEPT => $this->t('Not on page @page', ['@page' => $page_condition_page]),
+    $settings = self::normalizeSettings($inputs[self::EXPLICIT_INPUT_NAME] ?? $this->getDefaultExplicitInput());
+    $chips = [$this->rowsChip($settings['limit'], $settings['offset'])];
+    if ($settings['page'] !== NULL) {
+      $chips[] = match ($settings['mode']) {
+        self::PAGE_CONDITION_ONLY => $this->t('Page @page only', ['@page' => $settings['page']]),
+        self::PAGE_CONDITION_EXCEPT => $this->t('Not on page @page', ['@page' => $settings['page']]),
         default => NULL,
       };
     }
@@ -237,51 +222,6 @@ final class ViewTemplateRepeater extends ComponentSourceBase implements Componen
   /**
    * {@inheritdoc}
    */
-  public function getExplicitInput(string $uuid, ComponentTreeItem $item, ?FieldableEntityInterface $host_entity = NULL): array {
-    try {
-      return $item->getInputs() ?? $this->getDefaultExplicitInput();
-    }
-    catch (MissingComponentInputsException) {
-      return $this->getDefaultExplicitInput();
-    }
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function hydrateComponent(array $explicit_input, array $slot_definitions, array $active_required_explicit_inputs): array {
-    $hydrated = [self::EXPLICIT_INPUT_NAME => $explicit_input + $this->getDefaultExplicitInput()];
-    // The `slots` key is what makes Canvas call ::setSlots().
-    if (!empty($slot_definitions)) {
-      $hydrated['slots'] = \array_map(fn(array $slot): mixed => $slot['examples'][0] ?? '', $slot_definitions);
-    }
-    // @phpstan-ignore return.type
-    return $hydrated;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function inputToClientModel(array $explicit_input): array {
-    return ['resolved' => $explicit_input + $this->getDefaultExplicitInput()];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getClientSideInfo(Component $component): array {
-    // @phpstan-ignore return.type
-    return [
-      'build' => $this->renderComponent([], $component->getSlotDefinitions(), $component->uuid(), TRUE),
-      'metadata' => [
-        'slots' => $this->getSlotDefinitions(),
-      ],
-    ];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function buildComponentInstanceForm(
     array $form,
     FormStateInterface $form_state,
@@ -291,31 +231,61 @@ final class ViewTemplateRepeater extends ComponentSourceBase implements Componen
     ?EntityInterface $entity = NULL,
     array $settings = [],
   ): array {
-    return $form + $this->buildLimitOffsetPageConditionFormElements(
-      self::INPUT_LIMIT,
-      self::INPUT_OFFSET,
-      self::INPUT_PAGE_CONDITION_MODE,
-      self::INPUT_PAGE_CONDITION_PAGE,
-      $inputValues,
-    );
+    $form[self::INPUT_LIMIT] = [
+      '#type' => 'number',
+      '#title' => $this->t('Number of items'),
+      '#description' => $this->t('How many items to repeat. Enter 0 or leave empty for no limit.'),
+      '#min' => 0,
+      '#default_value' => $inputValues[self::INPUT_LIMIT] ?? NULL,
+    ];
+    $form[self::INPUT_OFFSET] = [
+      '#type' => 'number',
+      '#title' => $this->t('Offset'),
+      '#description' => $this->t('How many leading items to skip before repeating starts.'),
+      '#min' => 0,
+      '#default_value' => $inputValues[self::INPUT_OFFSET] ?? 0,
+    ];
+    $form[self::INPUT_PAGE_CONDITION_MODE] = [
+      '#type' => 'select',
+      '#title' => $this->t('Show on'),
+      '#description' => $this->t('Which pager page(s) this is active on — unlike "Offset" above, which only slices items within whichever page is currently showing, this applies across pagination.'),
+      '#options' => [
+        self::PAGE_CONDITION_ALL => $this->t('All pages'),
+        self::PAGE_CONDITION_ONLY => $this->t('Only page'),
+        self::PAGE_CONDITION_EXCEPT => $this->t('All pages except'),
+      ],
+      '#default_value' => $inputValues[self::INPUT_PAGE_CONDITION_MODE] ?? self::PAGE_CONDITION_ALL,
+    ];
+    // No #states: it needs a custom #name, which Canvas's client form
+    // serialization ignores, so the selection would not be saved.
+    $form[self::INPUT_PAGE_CONDITION_PAGE] = [
+      '#type' => 'number',
+      '#title' => $this->t('Page number'),
+      '#description' => $this->t("The pager's page number, starting at 1 for the first page. Only used when \"Show on\" above is set to \"Only page\" or \"All pages except\"."),
+      '#min' => 1,
+      '#default_value' => $inputValues[self::INPUT_PAGE_CONDITION_PAGE] ?? NULL,
+    ];
+    return $form;
   }
 
   /**
    * {@inheritdoc}
    */
   public function clientModelToInput(string $component_instance_uuid, Component $component, array $client_model, ?FieldableEntityInterface $host_entity, ?ConstraintViolationListInterface $violations = NULL): array {
-    // @phpstan-ignore identical.alwaysFalse
-    $is_new_instance = $client_model === ['resolved' => []];
-    // A newly-placed instance sends an empty `resolved`.
-    // @phpstan-ignore nullCoalesce.offset, ternary.alwaysFalse
-    $resolved = $is_new_instance ? $this->getDefaultExplicitInput() : ($client_model['resolved'] ?? []);
-    return $this->limitOffsetPageConditionToInput(
-      $resolved,
-      self::INPUT_LIMIT,
-      self::INPUT_OFFSET,
-      self::INPUT_PAGE_CONDITION_MODE,
-      self::INPUT_PAGE_CONDITION_PAGE,
-    );
+    // A newly placed instance sends an empty `resolved`.
+    $resolved = $client_model === ['resolved' => []] ? $this->getDefaultExplicitInput() : ($client_model['resolved'] ?? []);
+    // Limit and page are omitted when unset, as `requiredKey: false` requires.
+    $input = [
+      self::INPUT_OFFSET => (int) ($resolved[self::INPUT_OFFSET] ?? 0),
+      self::INPUT_PAGE_CONDITION_MODE => $resolved[self::INPUT_PAGE_CONDITION_MODE] ?? self::PAGE_CONDITION_ALL,
+    ];
+    foreach ([self::INPUT_LIMIT, self::INPUT_PAGE_CONDITION_PAGE] as $key) {
+      $value = $resolved[$key] ?? NULL;
+      if ($value !== NULL && $value !== '') {
+        $input[$key] = (int) $value;
+      }
+    }
+    return $input;
   }
 
   /**
@@ -323,31 +293,32 @@ final class ViewTemplateRepeater extends ComponentSourceBase implements Componen
    */
   public function validateComponentInput(array $inputValues, string $component_instance_uuid, ?FieldableEntityInterface $entity): ConstraintViolationListInterface {
     $violations = new ConstraintViolationList();
-    $this->validateLimitOffsetPageCondition(
-      $inputValues,
-      self::INPUT_LIMIT,
-      self::INPUT_OFFSET,
-      self::INPUT_PAGE_CONDITION_MODE,
-      self::INPUT_PAGE_CONDITION_PAGE,
-      $violations,
-    );
+    $limit = $inputValues[self::INPUT_LIMIT] ?? NULL;
+    if ($limit !== NULL && !\is_int($limit)) {
+      $violations->add($this->violation($this->t('Number of items must be a whole number.'), $inputValues, self::INPUT_LIMIT, $limit));
+    }
+    elseif ($limit !== NULL && $limit < 0) {
+      $violations->add($this->violation($this->t('Number of items must be 0 or greater.'), $inputValues, self::INPUT_LIMIT, $limit));
+    }
+    $offset = $inputValues[self::INPUT_OFFSET] ?? 0;
+    if (!\is_int($offset)) {
+      $violations->add($this->violation($this->t('Offset must be a whole number.'), $inputValues, self::INPUT_OFFSET, $offset));
+    }
+    elseif ($offset < 0) {
+      $violations->add($this->violation($this->t('Offset must be 0 or greater.'), $inputValues, self::INPUT_OFFSET, $offset));
+    }
+    $mode = $inputValues[self::INPUT_PAGE_CONDITION_MODE] ?? self::PAGE_CONDITION_ALL;
+    if (!\in_array($mode, [self::PAGE_CONDITION_ALL, self::PAGE_CONDITION_ONLY, self::PAGE_CONDITION_EXCEPT], TRUE)) {
+      $violations->add($this->violation($this->t('Choose where the repeater shows: all pages, only a page, or all pages except one.'), $inputValues, self::INPUT_PAGE_CONDITION_MODE, $mode));
+    }
+    $page = $inputValues[self::INPUT_PAGE_CONDITION_PAGE] ?? NULL;
+    if ($page !== NULL && !\is_int($page)) {
+      $violations->add($this->violation($this->t('Page number must be a whole number.'), $inputValues, self::INPUT_PAGE_CONDITION_PAGE, $page));
+    }
+    elseif (\in_array($mode, [self::PAGE_CONDITION_ONLY, self::PAGE_CONDITION_EXCEPT], TRUE) && ($page === NULL || $page < 1)) {
+      $violations->add($this->violation($this->t('A page number is required when "Show on" is set to "Only page" or "All pages except".'), $inputValues, self::INPUT_PAGE_CONDITION_PAGE, $page));
+    }
     return $violations;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function checkRequirements(): void {
-    // Always available.
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function calculateDependencies(): array {
-    return [
-      'module' => ['canvas_view_template'],
-    ];
   }
 
   /**

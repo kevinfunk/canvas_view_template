@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\canvas_view_template\Kernel;
 
-use Drupal\canvas\Entity\Component;
 use Drupal\canvas_view_template\Entity\ViewTemplate;
 use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateCondition;
 use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateEmpty;
@@ -40,13 +39,13 @@ final class ViewTemplateRepeaterContentsTest extends ViewTemplateKernelTestBase 
    */
   public function testWholeViewComponentsAreRejected(): void {
     foreach (ViewTemplateRepeaterContentsConstraintValidator::labels() as $component_id => $label) {
-      $repeater = $this->item(self::REPEATER);
-      $inside = $this->item($component_id, $repeater['uuid'], ViewTemplateRepeater::SLOT_NAME);
+      $repeater = $this->treeItem(self::REPEATER);
+      $inside = $this->treeItem($component_id, $repeater['uuid'], ViewTemplateRepeater::SLOT_NAME);
       $messages = $this->messages([$repeater, $inside]);
       self::assertContains(\sprintf('A "%s" cannot be placed inside a "View repeater": it shows the whole view, not one item. Place it beside the repeater.', $label), $messages, $component_id);
 
       // Beside the repeater it is fine.
-      $beside = $this->item($component_id);
+      $beside = $this->treeItem($component_id);
       self::assertSame([], $this->repeaterMessages($this->messages([$repeater, $beside])), $component_id);
     }
   }
@@ -55,11 +54,11 @@ final class ViewTemplateRepeaterContentsTest extends ViewTemplateKernelTestBase 
    * The rule applies at any depth, through containers.
    */
   public function testDeepNestingIsRejected(): void {
-    $repeater = $this->item(self::REPEATER);
-    $condition = $this->item(ViewTemplateCondition::SOURCE_PLUGIN_ID . '.' . ViewTemplateCondition::LOCAL_ID, $repeater['uuid'], ViewTemplateRepeater::SLOT_NAME);
-    $link = $this->item(ViewTemplateItemLink::SOURCE_PLUGIN_ID . '.' . ViewTemplateItemLink::LOCAL_ID, $condition['uuid'], ViewTemplateCondition::SLOT_NAME);
-    $empty = $this->item(ViewTemplateEmpty::SOURCE_PLUGIN_ID . '.' . ViewTemplateEmpty::LOCAL_ID, $link['uuid'], ViewTemplateItemLink::SLOT_NAME);
-    $pager = $this->item(ViewTemplatePlaceholder::SOURCE_PLUGIN_ID . '.' . ViewTemplatePlaceholder::VIEW_PAGER_LOCAL_ID, $empty['uuid'], ViewTemplateEmpty::SLOT_NAME);
+    $repeater = $this->treeItem(self::REPEATER);
+    $condition = $this->treeItem(ViewTemplateCondition::SOURCE_PLUGIN_ID . '.' . ViewTemplateCondition::LOCAL_ID, $repeater['uuid'], ViewTemplateRepeater::SLOT_NAME);
+    $link = $this->treeItem(ViewTemplateItemLink::SOURCE_PLUGIN_ID . '.' . ViewTemplateItemLink::LOCAL_ID, $condition['uuid'], ViewTemplateCondition::SLOT_NAME);
+    $empty = $this->treeItem(ViewTemplateEmpty::SOURCE_PLUGIN_ID . '.' . ViewTemplateEmpty::LOCAL_ID, $link['uuid'], ViewTemplateItemLink::SLOT_NAME);
+    $pager = $this->treeItem(ViewTemplatePlaceholder::SOURCE_PLUGIN_ID . '.' . ViewTemplatePlaceholder::VIEW_PAGER_LOCAL_ID, $empty['uuid'], ViewTemplateEmpty::SLOT_NAME);
     $messages = $this->repeaterMessages($this->messages([$repeater, $condition, $link, $empty, $pager]));
     self::assertCount(2, $messages);
     self::assertStringContainsString('"View no results"', $messages[0] . $messages[1]);
@@ -76,11 +75,11 @@ final class ViewTemplateRepeaterContentsTest extends ViewTemplateKernelTestBase 
    * Per-item components are allowed inside a repeater.
    */
   public function testPerItemComponentsAreAllowed(): void {
-    $repeater = $this->item(self::REPEATER);
-    $condition = $this->item(ViewTemplateCondition::SOURCE_PLUGIN_ID . '.' . ViewTemplateCondition::LOCAL_ID, $repeater['uuid'], ViewTemplateRepeater::SLOT_NAME);
-    $link = $this->item(ViewTemplateItemLink::SOURCE_PLUGIN_ID . '.' . ViewTemplateItemLink::LOCAL_ID, $condition['uuid'], ViewTemplateCondition::SLOT_NAME);
-    $item = $this->item(ViewTemplatePlaceholder::SOURCE_PLUGIN_ID . '.' . ViewTemplatePlaceholder::VIEW_ITEM_LOCAL_ID, $link['uuid'], ViewTemplateItemLink::SLOT_NAME);
-    $field = $this->item(ViewTemplateField::SOURCE_PLUGIN_ID . '.' . ViewTemplateField::LOCAL_ID, $repeater['uuid'], ViewTemplateRepeater::SLOT_NAME);
+    $repeater = $this->treeItem(self::REPEATER);
+    $condition = $this->treeItem(ViewTemplateCondition::SOURCE_PLUGIN_ID . '.' . ViewTemplateCondition::LOCAL_ID, $repeater['uuid'], ViewTemplateRepeater::SLOT_NAME);
+    $link = $this->treeItem(ViewTemplateItemLink::SOURCE_PLUGIN_ID . '.' . ViewTemplateItemLink::LOCAL_ID, $condition['uuid'], ViewTemplateCondition::SLOT_NAME);
+    $item = $this->treeItem(ViewTemplatePlaceholder::SOURCE_PLUGIN_ID . '.' . ViewTemplatePlaceholder::VIEW_ITEM_LOCAL_ID, $link['uuid'], ViewTemplateItemLink::SLOT_NAME);
+    $field = $this->treeItem(ViewTemplateField::SOURCE_PLUGIN_ID . '.' . ViewTemplateField::LOCAL_ID, $repeater['uuid'], ViewTemplateRepeater::SLOT_NAME);
     $tree = [$repeater, $condition, $link, $item, $field];
     self::assertSame([], $this->repeaterMessages($this->messages($tree)));
     self::assertSame([], ViewTemplateRepeaterContentsConstraintValidator::misplacedComponents($tree));
@@ -152,25 +151,6 @@ final class ViewTemplateRepeaterContentsTest extends ViewTemplateKernelTestBase 
    */
   private function repeaterMessages(array $messages): array {
     return \array_values(\array_filter($messages, static fn (string $message): bool => \str_contains($message, 'inside a "View repeater"')));
-  }
-
-  /**
-   * Builds a tree item for a component, optionally inside a slot.
-   */
-  private function item(string $component_id, ?string $parent_uuid = NULL, ?string $slot = NULL): array {
-    $component = Component::load($component_id);
-    self::assertNotNull($component, $component_id);
-    $item = [
-      'uuid' => \Drupal::service('uuid')->generate(),
-      'component_id' => $component_id,
-      'component_version' => $component->getActiveVersion(),
-      'inputs' => $component->getComponentSource()->getDefaultExplicitInput(),
-    ];
-    if ($parent_uuid !== NULL) {
-      $item['parent_uuid'] = $parent_uuid;
-      $item['slot'] = $slot;
-    }
-    return $item;
   }
 
 }

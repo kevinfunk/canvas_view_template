@@ -5,17 +5,12 @@ declare(strict_types=1);
 namespace Drupal\canvas_view_template\Plugin\Canvas\ComponentSource;
 
 use Drupal\canvas\Attribute\ComponentSource;
-use Drupal\canvas\ComponentSource\ComponentSourceBase;
 use Drupal\canvas\ComponentSource\ComponentSourceWithSlotsInterface;
 use Drupal\canvas\Entity\Component;
-use Drupal\canvas\MissingComponentInputsException;
-use Drupal\canvas\Plugin\Field\FieldType\ComponentTreeItem;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\FieldableEntityInterface;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Render\Markup;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
-use Symfony\Component\Validator\ConstraintViolation;
 use Symfony\Component\Validator\ConstraintViolationList;
 use Symfony\Component\Validator\ConstraintViolationListInterface;
 
@@ -38,9 +33,7 @@ use Symfony\Component\Validator\ConstraintViolationListInterface;
   supportsImplicitInputs: FALSE,
   discovery: FALSE,
 )]
-final class ViewTemplateItemLink extends ComponentSourceBase implements ComponentSourceWithSlotsInterface {
-
-  use ViewTemplateMarkerPreviewTrait;
+final class ViewTemplateItemLink extends ViewTemplateComponentSourceBase implements ComponentSourceWithSlotsInterface {
 
   public const string SOURCE_PLUGIN_ID = 'canvas_view_template_item_link';
 
@@ -61,11 +54,6 @@ final class ViewTemplateItemLink extends ComponentSourceBase implements Componen
   public const string OPEN_NEW = 'new';
 
   /**
-   * The key `hydrateComponent()` wraps explicit input under.
-   */
-  private const string EXPLICIT_INPUT_NAME = 'settings';
-
-  /**
    * The allowed "Open in" values, with their labels.
    *
    * @return array<string, \Drupal\Core\StringTranslation\TranslatableMarkup>
@@ -76,27 +64,6 @@ final class ViewTemplateItemLink extends ComponentSourceBase implements Componen
       self::OPEN_SAME => new TranslatableMarkup('Same tab'),
       self::OPEN_NEW => new TranslatableMarkup('New tab'),
     ];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function isBroken(): bool {
-    return FALSE;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function determineDefaultFolder(): string {
-    return ViewTemplatePlaceholder::LIBRARY_FOLDER_NAME;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getReferencedPluginClass(): ?string {
-    return NULL;
   }
 
   /**
@@ -147,16 +114,11 @@ final class ViewTemplateItemLink extends ComponentSourceBase implements Componen
       ];
       return;
     }
-    // Editor: the slot-marker HTML comments must sit inside a real wrapper.
-    $uuid = $build['#canvas_component_uuid'] ?? NULL;
-    if (\is_string($uuid)) {
-      $slot_build['#prefix'] = Markup::create(\sprintf('<!-- canvas-slot-start-%s/%s -->', $uuid, self::SLOT_NAME));
-      $slot_build['#suffix'] = Markup::create(\sprintf('<!-- canvas-slot-end-%s/%s -->', $uuid, self::SLOT_NAME));
-    }
+    // The editor's slot comments need a real wrapper element.
     $build[self::SLOT_NAME] = [
       '#type' => 'container',
       '#attributes' => ['class' => ['cvt-marker__slot']],
-      'content' => $slot_build,
+      'content' => $this->markSlot($slot_build, $build['#canvas_component_uuid'] ?? NULL, self::SLOT_NAME),
     ];
   }
 
@@ -216,51 +178,6 @@ final class ViewTemplateItemLink extends ComponentSourceBase implements Componen
   /**
    * {@inheritdoc}
    */
-  public function getExplicitInput(string $uuid, ComponentTreeItem $item, ?FieldableEntityInterface $host_entity = NULL): array {
-    try {
-      return $item->getInputs() ?? $this->getDefaultExplicitInput();
-    }
-    catch (MissingComponentInputsException) {
-      return $this->getDefaultExplicitInput();
-    }
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function hydrateComponent(array $explicit_input, array $slot_definitions, array $active_required_explicit_inputs): array {
-    $hydrated = [self::EXPLICIT_INPUT_NAME => $explicit_input + $this->getDefaultExplicitInput()];
-    // The `slots` key is what makes Canvas call ::setSlots().
-    if (!empty($slot_definitions)) {
-      $hydrated['slots'] = \array_map(fn(array $slot): mixed => $slot['examples'][0] ?? '', $slot_definitions);
-    }
-    // @phpstan-ignore return.type
-    return $hydrated;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function inputToClientModel(array $explicit_input): array {
-    return ['resolved' => $explicit_input + $this->getDefaultExplicitInput()];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getClientSideInfo(Component $component): array {
-    // @phpstan-ignore return.type
-    return [
-      'build' => $this->renderComponent([], $component->getSlotDefinitions(), $component->uuid(), TRUE),
-      'metadata' => [
-        'slots' => $this->getSlotDefinitions(),
-      ],
-    ];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function buildComponentInstanceForm(
     array $form,
     FormStateInterface $form_state,
@@ -285,44 +202,13 @@ final class ViewTemplateItemLink extends ComponentSourceBase implements Componen
   /**
    * {@inheritdoc}
    */
-  public function clientModelToInput(string $component_instance_uuid, Component $component, array $client_model, ?FieldableEntityInterface $host_entity, ?ConstraintViolationListInterface $violations = NULL): array {
-    $is_new_instance = $client_model === ['resolved' => []];
-    $resolved = $is_new_instance ? $this->getDefaultExplicitInput() : ($client_model['resolved'] ?? []);
-    return [self::INPUT_OPEN => $resolved[self::INPUT_OPEN] ?? self::OPEN_SAME];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function validateComponentInput(array $inputValues, string $component_instance_uuid, ?FieldableEntityInterface $entity): ConstraintViolationListInterface {
     $violations = new ConstraintViolationList();
     $open = $inputValues[self::INPUT_OPEN] ?? self::OPEN_SAME;
     if (!\is_string($open) || !\array_key_exists($open, self::openOptions())) {
-      $violations->add(new ConstraintViolation(
-        (string) $this->t('Choose where the link opens.'),
-        NULL,
-        [],
-        $inputValues,
-        self::INPUT_OPEN,
-        $open,
-      ));
+      $violations->add($this->violation($this->t('Choose where the link opens.'), $inputValues, self::INPUT_OPEN, $open));
     }
     return $violations;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function checkRequirements(): void {
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function calculateDependencies(): array {
-    return [
-      'module' => ['canvas_view_template'],
-    ];
   }
 
   /**

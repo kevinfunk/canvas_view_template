@@ -1,0 +1,235 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Drupal\\Core\\DependencyInjection\\DependencySerializationTrait does not support private properties\.$#'
+			identifier: dependencySerializationTraitProperty.unsupportedPrivateProperty
+			count: 2
+			path: src/Entity/ViewTemplateAccessControlHandler.php
+
+		-
+			message: '#^Read\-only properties are incompatible with Drupal\\Core\\DependencyInjection\\DependencySerializationTrait when the trait is used by a parent class on PHP \< 8\.4\.$#'
+			identifier: dependencySerializationTraitProperty.unsupportedReadOnlyProperty
+			count: 2
+			path: src/Entity/ViewTemplateAccessControlHandler.php
+
+		-
+			message: '#^Property Drupal\\views\\ViewExecutable\:\:\$display_handler \(Drupal\\views\\Plugin\\views\\display\\DisplayPluginBase\) in isset\(\) is not nullable\.$#'
+			identifier: isset.property
+			count: 1
+			path: src/Hook/ViewTemplateThemeHooks.php
+
+		-
+			message: '#^Method Drupal\\canvas_view_template\\Plugin\\Canvas\\ComponentSource\\ViewTemplateCondition\:\:getDefaultExplicitInput\(\) should return array\<string, array\{sourceType\: string, adapterInputs\: array\<string, mixed\>\}\|array\{sourceType\: string, expression\: string, value\?\: mixed, sourceTypeSettings\?\: array\{instance\?\: array\<string, mixed\>, storage\?\: array\<string, mixed\>, adapter\?\: string\}\}\|array\{sourceType\: string, value\: mixed, jsonSchema\: array, componentId\: string\}\> but returns array\{condition\: ''has_results''\}\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Plugin/Canvas/ComponentSource/ViewTemplateCondition.php
+
+		-
+			message: '#^Method Drupal\\canvas_view_template\\Plugin\\Canvas\\ComponentSource\\ViewTemplateFeedIcons\:\:getDefaultExplicitInput\(\) should return array\<string, array\{sourceType\: string, adapterInputs\: array\<string, mixed\>\}\|array\{sourceType\: string, expression\: string, value\?\: mixed, sourceTypeSettings\?\: array\{instance\?\: array\<string, mixed\>, storage\?\: array\<string, mixed\>, adapter\?\: string\}\}\|array\{sourceType\: string, value\: mixed, jsonSchema\: array, componentId\: string\}\> but returns array\{label\: ''visible''\}\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Plugin/Canvas/ComponentSource/ViewTemplateFeedIcons.php
+
+		-
+			message: '#^Method Drupal\\canvas_view_template\\Plugin\\Canvas\\ComponentSource\\ViewTemplateField\:\:getDefaultExplicitInput\(\) should return array\<string, array\{sourceType\: string, adapterInputs\: array\<string, mixed\>\}\|array\{sourceType\: string, expression\: string, value\?\: mixed, sourceTypeSettings\?\: array\{instance\?\: array\<string, mixed\>, storage\?\: array\<string, mixed\>, adapter\?\: string\}\}\|array\{sourceType\: string, value\: mixed, jsonSchema\: array, componentId\: string\}\> but returns array\{field\: '''', element\: ''div'', label\: ''hidden''\}\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Plugin/Canvas/ComponentSource/ViewTemplateField.php
+
+		-
+			message: '#^\\Drupal calls should be avoided in classes, use dependency injection instead$#'
+			identifier: globalDrupalDependencyInjection.useDependencyInjection
+			count: 3
+			path: src/Plugin/Canvas/ComponentSource/ViewTemplateField.php
+
+		-
+			message: '#^Method Drupal\\canvas_view_template\\Plugin\\Canvas\\ComponentSource\\ViewTemplateItemLink\:\:getDefaultExplicitInput\(\) should return array\<string, array\{sourceType\: string, adapterInputs\: array\<string, mixed\>\}\|array\{sourceType\: string, expression\: string, value\?\: mixed, sourceTypeSettings\?\: array\{instance\?\: array\<string, mixed\>, storage\?\: array\<string, mixed\>, adapter\?\: string\}\}\|array\{sourceType\: string, value\: mixed, jsonSchema\: array, componentId\: string\}\> but returns array\{open\: ''same''\}\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Plugin/Canvas/ComponentSource/ViewTemplateItemLink.php
+
+		-
+			message: '#^Method Drupal\\canvas_view_template\\Plugin\\Canvas\\ComponentSource\\ViewTemplateSummary\:\:getDefaultExplicitInput\(\) should return array\<string, array\{sourceType\: string, adapterInputs\: array\<string, mixed\>\}\|array\{sourceType\: string, expression\: string, value\?\: mixed, sourceTypeSettings\?\: array\{instance\?\: array\<string, mixed\>, storage\?\: array\<string, mixed\>, adapter\?\: string\}\}\|array\{sourceType\: string, value\: mixed, jsonSchema\: array, componentId\: string\}\> but returns array\{format\: ''Displaying @start \-…'', element\: ''p''\}\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Plugin/Canvas/ComponentSource/ViewTemplateSummary.php
+
+		-
+			message: '#^Method Drupal\\canvas_view_template\\Plugin\\Canvas\\ComponentSource\\ViewTemplateTitle\:\:getDefaultExplicitInput\(\) should return array\<string, array\{sourceType\: string, adapterInputs\: array\<string, mixed\>\}\|array\{sourceType\: string, expression\: string, value\?\: mixed, sourceTypeSettings\?\: array\{instance\?\: array\<string, mixed\>, storage\?\: array\<string, mixed\>, adapter\?\: string\}\}\|array\{sourceType\: string, value\: mixed, jsonSchema\: array, componentId\: string\}\> but returns array\{element\: ''h2''\}\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Plugin/Canvas/ComponentSource/ViewTemplateTitle.php
+
+		-
+			message: '#^Method Drupal\\canvas_view_template\\Plugin\\views\\style\\ViewTemplateStyle\:\:buildOptionsForm\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: src/Plugin/views/style/ViewTemplateStyle.php
+
+		-
+			message: '#^Method Drupal\\canvas_view_template\\Plugin\\views\\style\\ViewTemplateStyle\:\:buildOptionsForm\(\) has parameter \$form with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: src/Plugin/views/style/ViewTemplateStyle.php
+
+		-
+			message: '#^Method Drupal\\canvas_view_template\\Plugin\\views\\style\\ViewTemplateStyle\:\:submitOptionsForm\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: src/Plugin/views/style/ViewTemplateStyle.php
+
+		-
+			message: '#^Method Drupal\\canvas_view_template\\Plugin\\views\\style\\ViewTemplateStyle\:\:summaryTitle\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: src/Plugin/views/style/ViewTemplateStyle.php
+
+		-
+			message: '#^Property Drupal\\views\\ViewExecutable\:\:\$filter \(array\<Drupal\\views\\Plugin\\views\\filter\\FilterPluginBase\>\) on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.property
+			count: 1
+			path: src/Render/ViewConditions.php
+
+		-
+			message: '#^Property Drupal\\views\\ViewExecutable\:\:\$pager \(Drupal\\views\\Plugin\\views\\pager\\PagerPluginBase\) in isset\(\) is not nullable\.$#'
+			identifier: isset.property
+			count: 1
+			path: src/Render/ViewConditions.php
+
+		-
+			message: '#^Property Drupal\\views\\ViewExecutable\:\:\$total_rows \(int\) on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.property
+			count: 1
+			path: src/Render/ViewConditions.php
+
+		-
+			message: '#^Property Drupal\\views\\ResultRow\:\:\$_entity \(Drupal\\Core\\Entity\\EntityInterface\) on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.property
+			count: 1
+			path: src/Render/ViewItemUrls.php
+
+		-
+			message: '#^Property Drupal\\views\\ViewExecutable\:\:\$total_rows \(int\) on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.property
+			count: 1
+			path: src/Render/ViewResultSummary.php
+
+		-
+			message: '#^Parameter \#6 \$condition_values of static method Drupal\\canvas_view_template\\Render\\ViewTemplateRenderer\:\:computeRepeaterOutputs\(\) expects array\<string, bool\|null\>, array\<array\|null\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Render/ViewTemplateRenderer.php
+
+		-
+			message: '#^Method Drupal\\canvas_view_template\\ViewTemplateUninstallValidator\:\:validate\(\) should return array\<string\> but returns array\<int, Drupal\\Core\\StringTranslation\\TranslatableMarkup\>\.$#'
+			identifier: return.type
+			count: 1
+			path: src/ViewTemplateUninstallValidator.php
+
+		-
+			message: '#^Call to an undefined method Behat\\Mink\\Driver\\DriverInterface\:\:getWebDriverSession\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/src/FunctionalJavascript/ViewTemplateEditorTest.php
+
+		-
+			message: '#^Call to an undefined method Drupal\\Core\\Entity\\EntityInterface\:\:getComponentTree\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/src/FunctionalJavascript/ViewTemplateEditorTest.php
+
+		-
+			message: '#^Offset ''metadata'' does not exist on array\{source\?\: string, build\: array\<string, mixed\>, propSources\?\: array\<string, array\>, type\?\: ''external'', hasFallbackImplementation\?\: bool\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: tests/src/Kernel/ViewTemplateComponentContractTest.php
+
+		-
+			message: '#^Offset ''settings'' does not exist on array\{slots\?\: array\<string, string\>\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: tests/src/Kernel/ViewTemplateComponentContractTest.php
+
+		-
+			message: '#^Parameter \#3 \$client_model of method Drupal\\canvas_view_template\\Plugin\\Canvas\\ComponentSource\\ViewTemplateComponentSourceBase\:\:clientModelToInput\(\) expects array\{source\: array\<string, array\{sourceType\: string, adapterInputs\: array\<string, mixed\>\}\|array\{sourceType\: string, expression\: string, value\?\: mixed, sourceTypeSettings\?\: array\{instance\?\: array\<string, mixed\>, storage\?\: array\<string, mixed\>, adapter\?\: string\}\}\|array\{sourceType\: string, value\: mixed, jsonSchema\: array, componentId\: string\}\>, resolved\: array\<string, mixed\>\}, array\{resolved\: array\{\}\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/src/Kernel/ViewTemplateComponentContractTest.php
+
+		-
+			message: '#^Parameter \#3 \$client_model of method Drupal\\canvas_view_template\\Plugin\\Canvas\\ComponentSource\\ViewTemplateComponentSourceBase\:\:clientModelToInput\(\) expects array\{source\: array\<string, array\{sourceType\: string, adapterInputs\: array\<string, mixed\>\}\|array\{sourceType\: string, expression\: string, value\?\: mixed, sourceTypeSettings\?\: array\{instance\?\: array\<string, mixed\>, storage\?\: array\<string, mixed\>, adapter\?\: string\}\}\|array\{sourceType\: string, value\: mixed, jsonSchema\: array, componentId\: string\}\>, resolved\: array\<string, mixed\>\}, array\{resolved\: array\{field\: ''title'', element\: ''h2'', label\: ''above''\}\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/src/Kernel/ViewTemplateFieldTest.php
+
+		-
+			message: '#^Parameter \#3 \$client_model of method Drupal\\canvas_view_template\\Plugin\\Canvas\\ComponentSource\\ViewTemplateComponentSourceBase\:\:clientModelToInput\(\) expects array\{source\: array\<string, array\{sourceType\: string, adapterInputs\: array\<string, mixed\>\}\|array\{sourceType\: string, expression\: string, value\?\: mixed, sourceTypeSettings\?\: array\{instance\?\: array\<string, mixed\>, storage\?\: array\<string, mixed\>, adapter\?\: string\}\}\|array\{sourceType\: string, value\: mixed, jsonSchema\: array, componentId\: string\}\>, resolved\: array\<string, mixed\>\}, array\{resolved\: array\{\}\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/src/Kernel/ViewTemplateFieldTest.php
+
+		-
+			message: '#^Parameter \#1 \$expected of static method PHPUnit\\Framework\\Assert\:\:assertSame\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: tests/src/Kernel/ViewTemplateHardeningTest.php
+
+		-
+			message: '#^Method Drupal\\Tests\\canvas_view_template\\Kernel\\ViewTemplateLivePreviewAssetsTest\:\:fetch\(\) never assigns null to &\$request so it can be removed from the by\-ref type\.$#'
+			identifier: parameterByRef.unusedType
+			count: 1
+			path: tests/src/Kernel/ViewTemplateLivePreviewAssetsTest.php
+
+		-
+			message: '#^Call to an undefined method Drupal\\Core\\Access\\AccessResultInterface\:\:getCacheTags\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/src/Kernel/ViewTemplatePanelBackendTest.php
+
+		-
+			message: '#^Call to an undefined method Drupal\\Core\\Access\\AccessResultInterface\:\:getReason\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/src/Kernel/ViewTemplatePanelBackendTest.php
+
+		-
+			message: '#^Anonymous function never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: tests/src/Kernel/ViewTemplatePreviewTest.php
+
+		-
+			message: '#^Call to an undefined method Drupal\\Core\\Access\\AccessResultInterface\:\:getReason\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/src/Kernel/ViewTemplatePreviewTest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertNotNull\(\) with null will always evaluate to false\.$#'
+			identifier: staticMethod.impossibleType
+			count: 1
+			path: tests/src/Kernel/ViewTemplatePreviewTest.php
+
+		-
+			message: '#^Parameter \#3 \$client_model of method Drupal\\canvas_view_template\\Plugin\\Canvas\\ComponentSource\\ViewTemplateComponentSourceBase\:\:clientModelToInput\(\) expects array\{source\: array\<string, array\{sourceType\: string, adapterInputs\: array\<string, mixed\>\}\|array\{sourceType\: string, expression\: string, value\?\: mixed, sourceTypeSettings\?\: array\{instance\?\: array\<string, mixed\>, storage\?\: array\<string, mixed\>, adapter\?\: string\}\}\|array\{sourceType\: string, value\: mixed, jsonSchema\: array, componentId\: string\}\>, resolved\: array\<string, mixed\>\}, array\{resolved\: array\{\}\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/src/Kernel/ViewTemplateSummaryTest.php
+
+		-
+			message: '#^Parameter \#3 \$client_model of method Drupal\\canvas_view_template\\Plugin\\Canvas\\ComponentSource\\ViewTemplateComponentSourceBase\:\:clientModelToInput\(\) expects array\{source\: array\<string, array\{sourceType\: string, adapterInputs\: array\<string, mixed\>\}\|array\{sourceType\: string, expression\: string, value\?\: mixed, sourceTypeSettings\?\: array\{instance\?\: array\<string, mixed\>, storage\?\: array\<string, mixed\>, adapter\?\: string\}\}\|array\{sourceType\: string, value\: mixed, jsonSchema\: array, componentId\: string\}\>, resolved\: array\<string, mixed\>\}, array\{resolved\: array\{element\: ''h5''\}\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/src/Kernel/ViewTemplateTitleTest.php
+
+		-
+			message: '#^Parameter \#3 \$client_model of method Drupal\\canvas_view_template\\Plugin\\Canvas\\ComponentSource\\ViewTemplateComponentSourceBase\:\:clientModelToInput\(\) expects array\{source\: array\<string, array\{sourceType\: string, adapterInputs\: array\<string, mixed\>\}\|array\{sourceType\: string, expression\: string, value\?\: mixed, sourceTypeSettings\?\: array\{instance\?\: array\<string, mixed\>, storage\?\: array\<string, mixed\>, adapter\?\: string\}\}\|array\{sourceType\: string, value\: mixed, jsonSchema\: array, componentId\: string\}\>, resolved\: array\<string, mixed\>\}, array\{resolved\: array\{\}\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/src/Kernel/ViewTemplateTitleTest.php
+
+		-
+			message: '#^Parameter \#2 \$array of function implode expects array\<string\>, array\<array\<string\>\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/src/Kernel/ViewTemplateUsageTest.php

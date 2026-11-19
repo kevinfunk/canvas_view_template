@@ -25,11 +25,6 @@ final class ViewTemplatePreviewSelection {
    */
   public const string NONE = 'none';
 
-  /**
-   * The legacy stored value for "none".
-   */
-  private const string LEGACY_NONE = '_none';
-
   private const string COLLECTION = 'canvas_view_template';
 
   /**
@@ -56,7 +51,7 @@ final class ViewTemplatePreviewSelection {
     catch (\Exception) {
       // No session (e.g. CLI): nothing is remembered.
     }
-    if ($value === self::NONE || $value === self::LEGACY_NONE) {
+    if ($value === self::NONE) {
       return self::NONE;
     }
     $choice = \is_string($value) ? self::parse($value) : NULL;
@@ -109,7 +104,7 @@ final class ViewTemplatePreviewSelection {
       if (\is_string($value) && self::parse($value) !== NULL) {
         $store->set("preview:$template_id", $value);
       }
-      elseif ($value === self::NONE || $value === self::LEGACY_NONE) {
+      elseif ($value === self::NONE) {
         $store->set("preview:$template_id", self::NONE);
       }
       else {
@@ -128,7 +123,7 @@ final class ViewTemplatePreviewSelection {
    *   The View and display ids, or NULL.
    */
   public static function parse(string $value): ?array {
-    if (!\preg_match('/^([a-z0-9_]+)[\/:]([a-z0-9_]+)$/', $value, $matches)) {
+    if (!\preg_match('/^([a-z0-9_]+)\/([a-z0-9_]+)$/', $value, $matches)) {
       return NULL;
     }
     return ['view' => $matches[1], 'display' => $matches[2]];

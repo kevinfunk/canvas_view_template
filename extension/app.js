@@ -9,7 +9,14 @@
   const scriptUrl = document.currentScript?.src;
 
   const base = window.location.pathname.split('/modules/')[0];
-  const api = `${base}/canvas/api/v0/config/view_template`;
+  const api = `${base}/canvas/api/v0/config/canvas_view_template`;
+
+  // Same rule as the server's.
+  const MACHINE_NAME = /^[a-z][a-z0-9_]{0,63}$/;
+  const MACHINE_NAME_MAX = 64;
+  // Leaves room for a `_NN` suffix on a copy's id.
+  const COPY_BASE_MAX = MACHINE_NAME_MAX - 4;
+  const SUMMARY_MAX = 3;
 
   const TEMPLATE_ICON =
     '<svg aria-hidden="true" width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="0.8" stroke-linejoin="round"><rect x="2.5" y="1.5" width="10" height="4" rx="0.5"/><rect x="2.5" y="7.5" width="4" height="6" rx="0.5"/><rect x="8.5" y="7.5" width="4" height="2" rx="0.5"/><rect x="8.5" y="11.5" width="4" height="2" rx="0.5"/></svg>';
@@ -28,22 +35,23 @@
     close: document.getElementById('close-button'),
   };
 
-  const showError = (message) => {
-    els.error.textContent = message || '';
-    els.errorBox.hidden = !message;
+  const element = (tag, className, props = {}, doc = document) => {
+    const node = doc.createElement(tag);
+    if (className) {
+      node.className = className;
+    }
+    return Object.assign(node, props);
   };
 
-  const announce = (message) => {
-    els.status.textContent = '';
-    setTimeout(() => {
-      els.status.textContent = message;
-    }, 50);
-  };
-
-  const csrfToken = async () => {
-    const response = await fetch(`${base}/session/token`, { credentials: 'same-origin' });
-    return response.text();
-  };
+  /** The document that hosts dialogs: the editor page when framed. */
+  const hostDocument = (() => {
+    try {
+      const doc = window.parent.document;
+      return doc.body ? doc : document;
+    } catch {
+      return document;
+    }
+  })();
 
   const check = async (response) => {
     if (response.ok) {
@@ -61,7 +69,60 @@
     throw failure;
   };
 
-  const editorUrl = (id) => `${base}/canvas/editor/view_template/${encodeURIComponent(id)}`;
+  const getJson = async (url) => {
+    const response = await check(
+      await fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } }),
+    );
+    return response.json();
+  };
+
+  const request = async (url, method, body) => {
+    const token = await (await fetch(`${base}/session/token`, { credentials: 'same-origin' })).text();
+    const headers = { 'X-CSRF-Token': token, Accept: 'application/json' };
+    if (body) {
+      headers['Content-Type'] = 'application/json';
+    }
+    await check(
+      await fetch(url, {
+        method,
+        credentials: 'same-origin',
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+      }),
+    );
+  };
+
+  const summarize = (labels) => {
+    const shown = labels.slice(0, SUMMARY_MAX);
+    const more = labels.length - shown.length;
+    if (more > 0) {
+      return `${shown.join(', ')} and ${more} more`;
+    }
+    return shown.length > 1 ? `${shown.slice(0, -1).join(', ')} and ${shown.at(-1)}` : shown[0];
+  };
+
+  const slug = (label) =>
+    label
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      // Machine names must start with a letter.
+      .replace(/^(\d)/, 't_$1')
+      .slice(0, MACHINE_NAME_MAX) || 'template';
+
+  const showError = (message) => {
+    els.error.textContent = message || '';
+    els.errorBox.hidden = !message;
+  };
+
+  const announce = (message) => {
+    els.status.textContent = '';
+    setTimeout(() => {
+      els.status.textContent = message;
+    }, 50);
+  };
+
+  const editorUrl = (id) => `${base}/canvas/editor/canvas_view_template/${encodeURIComponent(id)}`;
 
   const navigateParent = (url) => {
     try {
@@ -98,8 +159,9 @@
   /**
    * Makes the host look like a Canvas side panel (no back bar, 296px wide).
    *
-   * Does nothing if Canvas's markup is not as expected.
+   * Does nothing if Canvas's markup is not as expected. `restoreHost` undoes it.
    */
+  let restoreHost = () => {};
   const adaptHost = () => {
     try {
       const frame = window.frameElement;
@@ -112,25 +174,37 @@
       page.style.width = '296px';
       page.style.flex = 'none';
       page.style.borderRight = '1px solid var(--gray-5, #e0e1e6)';
-      window.addEventListener('pagehide', () => {
+      restoreHost = () => {
         bar.style.display = '';
         page.style.width = '';
         page.style.flex = '';
         page.style.borderRight = '';
-      });
+      };
     } catch {
       // Not framed or parent unreachable.
     }
   };
   adaptHost();
 
-  const element = (tag, className, props = {}) => {
-    const node = document.createElement(tag);
-    if (className) {
-      node.className = className;
+  let dialogStyles = null;
+  let dialogStylesReady = Promise.resolve();
+  // Loads the dialog stylesheet into the host page once; the menu must wait for it.
+  const ensureDialogStyles = () => {
+    if (dialogStyles || !scriptUrl) {
+      return dialogStylesReady;
     }
-    return Object.assign(node, props);
+    dialogStyles = hostDocument.createElement('link');
+    dialogStyles.rel = 'stylesheet';
+    dialogStyles.href = new URL('dialog.css', scriptUrl).href;
+    dialogStylesReady = new Promise((resolve) => {
+      dialogStyles.onload = resolve;
+      dialogStyles.onerror = resolve;
+    });
+    hostDocument.head.append(dialogStyles);
+    return dialogStylesReady;
   };
+
+  const openDialogs = new Set();
 
   // Focuses a row's "..." button, kept shown until focus leaves it.
   const focusTrigger = (button) => {
@@ -146,6 +220,7 @@
 
   // The row menu is drawn in the editor page so it can hang out of the narrow frame.
   let openMenu = null;
+  const onResize = () => closeMenu();
   const closeMenu = ({ restoreFocus = false } = {}) => {
     if (!openMenu) {
       return;
@@ -157,7 +232,7 @@
     row.classList.remove('node--menu-open');
     hostDocument.removeEventListener('mousedown', onHostPointer, true);
     hostDocument.removeEventListener('keydown', onHostKeydown, true);
-    window.removeEventListener('resize', closeMenu);
+    window.removeEventListener('resize', onResize);
     if (restoreFocus) {
       focusTrigger(button);
     }
@@ -183,15 +258,22 @@
       closeMenu({ restoreFocus: true });
     }
   });
-  window.addEventListener('pagehide', () => closeMenu());
   document.addEventListener('scroll', () => closeMenu(), true);
+  window.addEventListener('pagehide', () => {
+    closeMenu();
+    for (const close of [...openDialogs]) {
+      close();
+    }
+    dialogStyles?.remove();
+    restoreHost();
+  });
 
   /** Opens a row's menu in the editor page, below its button or above if no room. */
   const showMenu = (button, row, name, entries) => {
     closeMenu();
     const styles = ensureDialogStyles();
     const doc = hostDocument;
-    const make = (tag, className, props = {}) => Object.assign(doc.createElement(tag), { className, ...props });
+    const make = (tag, className, props) => element(tag, className, props, doc);
     const menu = make('div', 'cvt-menu');
     menu.setAttribute('role', 'menu');
     menu.setAttribute('aria-label', `Actions for ${name}`);
@@ -241,7 +323,7 @@
     openMenu = { menu, button, row };
     doc.addEventListener('mousedown', onHostPointer, true);
     doc.addEventListener('keydown', onHostKeydown, true);
-    window.addEventListener('resize', closeMenu);
+    window.addEventListener('resize', onResize);
 
     styles.then(() => {
       if (openMenu?.menu !== menu) {
@@ -261,153 +343,6 @@
     });
   };
 
-  // View display labels per template id; `usageKnown` is false if the request failed.
-  let usage = {};
-  let usageKnown = false;
-  let templateIds = new Set();
-  const loadUsage = async () => {
-    try {
-      const response = await check(
-        await fetch(`${base}/canvas-view-template/usage`, {
-          credentials: 'same-origin',
-          headers: { Accept: 'application/json' },
-        }),
-      );
-      usage = (await response.json()).templates ?? {};
-      usageKnown = true;
-    } catch (error) {
-      usage = {};
-      usageKnown = false;
-    }
-  };
-
-  const usageText = (id) => {
-    if (!usageKnown) {
-      return 'Usage unknown';
-    }
-    const labels = (usage[id] ?? []).map((display) => display.label);
-    return labels.length ? `Used by ${summarize(labels)}` : 'Not used';
-  };
-
-  const renderNode = (template) => {
-    const name = template.label || template.id;
-    const item = element('li', 'node');
-
-    // Title tooltip: long names are truncated.
-    const main = element('button', 'node__main', { type: 'button', title: name });
-    const icon = element('span', 'node__icon');
-    icon.innerHTML = TEMPLATE_ICON;
-    const text = element('span', 'node__text');
-    text.append(element('span', 'node__title', { textContent: name }));
-    if (template.description) {
-      text.append(element('span', 'node__desc', { textContent: template.description }));
-    }
-    text.append(element('span', 'node__usage', { textContent: usageText(template.id) }));
-    main.append(icon, text);
-    main.addEventListener('click', () => openEditor(template.id));
-
-    const dots = element('button', 'node__dots', { type: 'button' });
-    dots.setAttribute('aria-label', `Actions for ${name}`);
-    dots.setAttribute('aria-haspopup', 'menu');
-    dots.setAttribute('aria-expanded', 'false');
-    dots.innerHTML = DOTS_ICON;
-
-    const entries = [
-      { label: 'Edit', run: () => openEditor(template.id) },
-      { label: 'Duplicate', run: () => openDuplicateDialog(template, dots) },
-      { label: 'Delete', danger: true, run: () => openDeleteDialog(template, dots) },
-    ];
-    const toggleMenu = () => {
-      if (openMenu?.button === dots) {
-        closeMenu({ restoreFocus: true });
-      } else {
-        showMenu(dots, item, name, entries);
-      }
-    };
-    dots.addEventListener('click', (event) => {
-      event.stopPropagation();
-      toggleMenu();
-    });
-    dots.addEventListener('keydown', (event) => {
-      if (event.key === 'ArrowDown') {
-        event.preventDefault();
-        if (openMenu?.button !== dots) {
-          showMenu(dots, item, name, entries);
-        }
-      }
-    });
-
-    item.append(main, dots);
-    return item;
-  };
-
-  const render = (templates) => {
-    els.list.replaceChildren(...templates.map(renderNode));
-    els.loading.hidden = true;
-    els.empty.hidden = templates.length > 0;
-  };
-
-  const load = async ({ announceCount = true } = {}) => {
-    showError('');
-    try {
-      const response = await check(
-        await fetch(api, { credentials: 'same-origin', headers: { Accept: 'application/json' } }),
-      );
-      const templates = Object.values(await response.json());
-      templateIds = new Set(templates.map((template) => template.id));
-      await loadUsage();
-      render(templates);
-      els.newButton.hidden = false;
-      if (announceCount) {
-        announce(templates.length === 1 ? '1 view template.' : `${templates.length} view templates.`);
-      }
-    } catch (error) {
-      els.loading.hidden = true;
-      els.newButton.hidden = true;
-      showError(`Could not load view templates: ${error.message}`);
-    }
-  };
-  els.retry.addEventListener('click', () => {
-    els.loading.hidden = false;
-    load();
-  });
-
-  /** The document that hosts dialogs: the editor page when framed. */
-  const hostDocument = (() => {
-    try {
-      const doc = window.parent.document;
-      return doc.body ? doc : document;
-    } catch {
-      return document;
-    }
-  })();
-
-  let dialogStyles = null;
-  let dialogStylesReady = Promise.resolve();
-  // Loads the dialog stylesheet into the host page once; the menu must wait for it.
-  const ensureDialogStyles = () => {
-    if (dialogStyles || !scriptUrl) {
-      return dialogStylesReady;
-    }
-    dialogStyles = hostDocument.createElement('link');
-    dialogStyles.rel = 'stylesheet';
-    dialogStyles.href = new URL('dialog.css', scriptUrl).href;
-    dialogStylesReady = new Promise((resolve) => {
-      dialogStyles.onload = resolve;
-      dialogStyles.onerror = resolve;
-    });
-    hostDocument.head.append(dialogStyles);
-    return dialogStylesReady;
-  };
-
-  const openDialogs = new Set();
-  window.addEventListener('pagehide', () => {
-    for (const close of [...openDialogs]) {
-      close();
-    }
-    dialogStyles?.remove();
-  });
-
   /**
    * Shows a modal dialog in the host page.
    *
@@ -418,11 +353,7 @@
     ensureDialogStyles();
     const previousFocus = document.activeElement;
     const doc = hostDocument;
-    const make = (tag, className, props = {}) => {
-      const node = doc.createElement(tag);
-      node.className = className;
-      return Object.assign(node, props);
-    };
+    const make = (tag, className, props) => element(tag, className, props, doc);
 
     const overlay = make('div', 'cvt-overlay');
     const box = make('div', 'cvt-dialog', { role: options.fields ? 'dialog' : 'alertdialog', tabIndex: -1 });
@@ -579,43 +510,110 @@
     return dialog;
   };
 
-  const request = async (url, method, body) => {
-    const headers = { 'X-CSRF-Token': await csrfToken(), Accept: 'application/json' };
-    if (body) {
-      headers['Content-Type'] = 'application/json';
+  // View display labels per template id; null if the request failed.
+  let usage = null;
+  let templateIds = new Set();
+  const loadUsage = async () => {
+    try {
+      usage = (await getJson(`${base}/canvas-view-template/usage`)).templates ?? {};
+    } catch {
+      usage = null;
     }
-    await check(
-      await fetch(url, {
-        method,
-        credentials: 'same-origin',
-        headers,
-        body: body ? JSON.stringify(body) : undefined,
-      }),
-    );
+  };
+
+  const usageText = (id) => {
+    if (!usage) {
+      return 'Usage unknown';
+    }
+    const labels = (usage[id] ?? []).map((display) => display.label);
+    return labels.length ? `Used by ${summarize(labels)}` : 'Not used';
   };
 
   const usedBy = async (template) => {
     try {
-      const response = await check(
-        await fetch(`${base}/canvas-view-template/usage/${encodeURIComponent(template.id)}`, {
-          credentials: 'same-origin',
-          headers: { Accept: 'application/json' },
-        }),
-      );
-      return (await response.json()).displays.map((display) => display.label);
-    } catch (error) {
+      const body = await getJson(`${base}/canvas-view-template/usage/${encodeURIComponent(template.id)}`);
+      return body.displays.map((display) => display.label);
+    } catch {
       return [];
     }
   };
 
-  const summarize = (labels) => {
-    const shown = labels.slice(0, 3);
-    const more = labels.length - shown.length;
-    if (more > 0) {
-      return `${shown.join(', ')} and ${more} more`;
+  const renderNode = (template) => {
+    const name = template.label || template.id;
+    const item = element('li', 'node');
+
+    // Title tooltip: long names are truncated.
+    const main = element('button', 'node__main', { type: 'button', title: name });
+    const icon = element('span', 'node__icon');
+    icon.innerHTML = TEMPLATE_ICON;
+    const text = element('span', 'node__text');
+    text.append(element('span', 'node__title', { textContent: name }));
+    if (template.description) {
+      text.append(element('span', 'node__desc', { textContent: template.description }));
     }
-    return shown.length > 1 ? `${shown.slice(0, -1).join(', ')} and ${shown.at(-1)}` : shown[0];
+    text.append(element('span', 'node__usage', { textContent: usageText(template.id) }));
+    main.append(icon, text);
+    main.addEventListener('click', () => openEditor(template.id));
+
+    const dots = element('button', 'node__dots', { type: 'button' });
+    dots.setAttribute('aria-label', `Actions for ${name}`);
+    dots.setAttribute('aria-haspopup', 'menu');
+    dots.setAttribute('aria-expanded', 'false');
+    dots.innerHTML = DOTS_ICON;
+
+    const entries = [
+      { label: 'Edit', run: () => openEditor(template.id) },
+      { label: 'Duplicate', run: () => openDuplicateDialog(template, dots) },
+      { label: 'Delete', danger: true, run: () => openDeleteDialog(template, dots) },
+    ];
+    dots.addEventListener('click', (event) => {
+      event.stopPropagation();
+      if (openMenu?.button === dots) {
+        closeMenu({ restoreFocus: true });
+      } else {
+        showMenu(dots, item, name, entries);
+      }
+    });
+    dots.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        if (openMenu?.button !== dots) {
+          showMenu(dots, item, name, entries);
+        }
+      }
+    });
+
+    item.append(main, dots);
+    return item;
   };
+
+  const render = (templates) => {
+    els.list.replaceChildren(...templates.map(renderNode));
+    els.loading.hidden = true;
+    els.empty.hidden = templates.length > 0;
+  };
+
+  const load = async ({ announceCount = true } = {}) => {
+    showError('');
+    try {
+      const templates = Object.values(await getJson(api));
+      templateIds = new Set(templates.map((template) => template.id));
+      await loadUsage();
+      render(templates);
+      els.newButton.hidden = false;
+      if (announceCount) {
+        announce(templates.length === 1 ? '1 view template.' : `${templates.length} view templates.`);
+      }
+    } catch (error) {
+      els.loading.hidden = true;
+      els.newButton.hidden = true;
+      showError(`Could not load view templates: ${error.message}`);
+    }
+  };
+  els.retry.addEventListener('click', () => {
+    els.loading.hidden = false;
+    load();
+  });
 
   // Stands in for confirm(), which the sandbox blocks.
   let deleteOpening = false;
@@ -668,34 +666,66 @@
     });
   };
 
-  const slug = (label) =>
-    label
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '_')
-      .replace(/^_+|_+$/g, '')
-      // Machine names must start with a letter.
-      .replace(/^(\d)/, 't_$1')
-      .slice(0, 64) || 'template';
-
-  // Same rule as the server's.
-  const MACHINE_NAME = /^[a-z][a-z0-9_]{0,63}$/;
-
   const copyIdFor = (label) => {
-    const taken = new Set([...templateIds, ...Object.keys(usage)]);
-    const base = slug(label);
-    let id = base;
+    const taken = new Set([...templateIds, ...Object.keys(usage ?? {})]);
+    const stem = slug(label);
+    let id = stem;
     for (let n = 2; taken.has(id); n++) {
-      id = `${base.slice(0, 60)}_${n}`;
+      id = `${stem.slice(0, COPY_BASE_MAX)}_${n}`;
     }
     return id;
   };
 
-  const openDuplicateDialog = (template, trigger) => {
+  /**
+   * The label + machine name dialog shared by Create and Duplicate.
+   *
+   * `suggestId` derives the machine name from the label until it is edited by
+   * hand; `body(id, label, values)` is posted to `url`; `verb` words a failure.
+   */
+  const openNameDialog = ({ title, message, fields, confirmLabel, trigger, suggestId, url, verb, body }) => {
     closeMenu();
-    const name = template.label || template.id;
-    const label = `Copy of ${name}`;
     let idEdited = false;
+    const invalid = (text, field) => Object.assign(new Error(text), { field });
     showDialog({
+      title,
+      message,
+      fields,
+      confirmLabel,
+      confirmClass: 'solid',
+      cancelClass: 'gray',
+      focus: 'label',
+      returnFocus: trigger ? () => focusTrigger(trigger) : undefined,
+      onInput: (key, value, inputs) => {
+        if (key === 'id') {
+          idEdited = true;
+        } else if (key === 'label' && !idEdited) {
+          inputs.id.value = suggestId(value);
+        }
+      },
+      onConfirm: async (values) => {
+        const id = values.id.trim();
+        const label = values.label.trim();
+        if (label === '') {
+          throw invalid('Enter a label.', 'label');
+        }
+        if (!MACHINE_NAME.test(id)) {
+          throw invalid('The machine name must start with a letter and use only lowercase letters, numbers and underscores.', 'id');
+        }
+        try {
+          await request(url, 'POST', body(id, label, values));
+        } catch (failure) {
+          throw failure.status === 409
+            ? invalid(`A view template with the machine name "${id}" already exists.`, 'id')
+            : new Error(`Could not ${verb} the view template: ${failure.message}`);
+        }
+        openEditor(id);
+      },
+    });
+  };
+
+  const openDuplicateDialog = (template, trigger) => {
+    const label = `Copy of ${template.label || template.id}`;
+    openNameDialog({
       title: 'Duplicate view template',
       message: 'Starts from what the editor shows now, including changes not yet published. Views keep using the original until you choose the copy in their Format settings.',
       fields: [
@@ -703,43 +733,16 @@
         { key: 'id', label: 'Machine name', value: copyIdFor(label) },
       ],
       confirmLabel: 'Duplicate and edit',
-      confirmClass: 'solid',
-      cancelClass: 'gray',
-      focus: 'label',
-      returnFocus: () => focusTrigger(trigger),
-      onInput: (key, value, inputs) => {
-        if (key === 'id') {
-          idEdited = true;
-        } else if (key === 'label' && !idEdited) {
-          inputs.id.value = copyIdFor(value);
-        }
-      },
-      onConfirm: async (values) => {
-        const id = values.id.trim();
-        const copyLabel = values.label.trim();
-        const invalid = (message, field) => Object.assign(new Error(message), { field });
-        if (copyLabel === '') {
-          throw invalid('Enter a label.', 'label');
-        }
-        if (!MACHINE_NAME.test(id)) {
-          throw invalid('The machine name must start with a letter and use only lowercase letters, numbers and underscores.', 'id');
-        }
-        try {
-          await request(`${base}/canvas-view-template/duplicate/${encodeURIComponent(template.id)}`, 'POST', { id, label: copyLabel });
-        } catch (failure) {
-          throw failure.status === 409
-            ? invalid(`A view template with the machine name "${id}" already exists.`, 'id')
-            : new Error(`Could not duplicate the view template: ${failure.message}`);
-        }
-        openEditor(id);
-      },
+      trigger,
+      suggestId: copyIdFor,
+      url: `${base}/canvas-view-template/duplicate/${encodeURIComponent(template.id)}`,
+      verb: 'duplicate',
+      body: (id, copyLabel) => ({ id, label: copyLabel }),
     });
   };
 
   const openCreateDialog = () => {
-    closeMenu();
-    let idEdited = false;
-    showDialog({
+    openNameDialog({
       title: 'New view template',
       fields: [
         { key: 'label', label: 'Label' },
@@ -747,38 +750,12 @@
         { key: 'description', label: 'Description', optional: true },
       ],
       confirmLabel: 'Create and edit',
-      confirmClass: 'solid',
-      cancelClass: 'gray',
-      focus: 'label',
-      onInput: (key, value, inputs) => {
-        if (key === 'id') {
-          idEdited = true;
-        } else if (key === 'label' && !idEdited) {
-          inputs.id.value = value.trim() ? slug(value) : '';
-        }
-      },
-      onConfirm: async (values) => {
-        const id = values.id.trim();
-        const label = values.label.trim();
-        const invalid = (message, field) => Object.assign(new Error(message), { field });
-        if (label === '') {
-          throw invalid('Enter a label.', 'label');
-        }
-        if (!MACHINE_NAME.test(id)) {
-          throw invalid('The machine name must start with a letter and use only lowercase letters, numbers and underscores.', 'id');
-        }
-        const body = { id, label };
-        if (values.description.trim() !== '') {
-          body.description = values.description.trim();
-        }
-        try {
-          await request(api, 'POST', body);
-        } catch (failure) {
-          throw failure.status === 409
-            ? invalid(`A view template with the machine name "${id}" already exists.`, 'id')
-            : new Error(`Could not create the view template: ${failure.message}`);
-        }
-        openEditor(id);
+      suggestId: (value) => (value.trim() ? slug(value) : ''),
+      url: api,
+      verb: 'create',
+      body: (id, label, values) => {
+        const description = values.description.trim();
+        return description === '' ? { id, label } : { id, label, description };
       },
     });
   };

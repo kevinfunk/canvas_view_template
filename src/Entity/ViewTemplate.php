@@ -27,6 +27,7 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
  */
 #[ConfigEntityType(
   id: self::ENTITY_TYPE_ID,
+  config_prefix: 'view_template',
   label: new TranslatableMarkup('View template'),
   label_singular: new TranslatableMarkup('view template'),
   label_plural: new TranslatableMarkup('view templates'),
@@ -54,12 +55,12 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 )]
 final class ViewTemplate extends ComponentTreeConfigEntityBase implements CanvasHttpApiEligibleConfigEntityInterface, EmptyTargetEntityProviderInterface {
 
-  public const string ENTITY_TYPE_ID = 'view_template';
+  public const string ENTITY_TYPE_ID = 'canvas_view_template';
 
   /**
    * The permission to administer view templates.
    */
-  public const string ADMIN_PERMISSION = 'administer view template';
+  public const string ADMIN_PERMISSION = 'administer view templates';
 
   use ClientServerConversionTrait;
 
@@ -93,7 +94,7 @@ final class ViewTemplate extends ComponentTreeConfigEntityBase implements Canvas
    * @param array $items
    *   The component tree items; top-level ones must have `parent_uuid: NULL`.
    *
-   * @see \Drupal\canvas_view_template\Render\ViewTemplateRenderer::renderRepeater()
+   * @see \Drupal\canvas_view_template\Render\ViewTemplateRenderer::renderRowsThroughSubtree()
    */
   public function getComponentSubtree(array $items): ComponentTreeItemList {
     $field_items = $this->createDanglingComponentTreeItemList($this);

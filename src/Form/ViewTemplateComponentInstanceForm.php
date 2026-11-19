@@ -25,11 +25,12 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  *
  * A fork of Canvas's ComponentInstanceForm::buildForm(), which cannot be
  * reused: the class is final and its assert() only accepts Canvas's own
- * entity types. KEEP IN SYNC with it (last compared against Canvas 1.12.0).
+ * entity types. KEEP IN SYNC with it (last compared against Canvas 1.13.0).
  *
  * The form ID is deliberately Canvas's own, so its alters and AJAX handling
- * apply. The route (`canvas.api.form.component_instance.view_template`) must
- * keep the `canvas.api.form.` prefix, which selects the canvas_stark theme.
+ * apply. The route
+ * (`canvas.api.form.component_instance.canvas_view_template`) must keep the
+ * `canvas.api.form.` prefix, which selects the canvas_stark theme.
  *
  * @see \Drupal\canvas\Form\ComponentInstanceForm
  * @see \Drupal\canvas\Theme\CanvasThemeNegotiator::applies()

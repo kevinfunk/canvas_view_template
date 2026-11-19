@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\canvas_view_template\EventSubscriber;
 
-use Drupal\canvas\AutoSave\AutoSaveManager;
 use Drupal\canvas\Render\PreviewEnvelope;
 use Drupal\canvas_view_template\Entity\ViewTemplate;
 use Drupal\canvas_view_template\Form\ViewTemplatePreviewForm;
@@ -12,6 +11,7 @@ use Drupal\canvas_view_template\Plugin\Validation\Constraint\ViewTemplateNoNeste
 use Drupal\canvas_view_template\Plugin\Validation\Constraint\ViewTemplateRepeaterContentsConstraintValidator;
 use Drupal\canvas_view_template\Preview\ViewTemplateLivePreview;
 use Drupal\canvas_view_template\Preview\ViewTemplatePreviewSelection;
+use Drupal\canvas_view_template\ViewTemplateDrafts;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Routing\UrlGeneratorInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
@@ -38,7 +38,7 @@ final class ViewTemplatePreviewSubscriber implements EventSubscriberInterface {
     private readonly ViewTemplatePreviewSelection $selection,
     private readonly ViewTemplateLivePreview $livePreview,
     private readonly UrlGeneratorInterface $urlGenerator,
-    private readonly AutoSaveManager $autoSaveManager,
+    private readonly ViewTemplateDrafts $drafts,
   ) {}
 
   /**
@@ -92,9 +92,6 @@ final class ViewTemplatePreviewSubscriber implements EventSubscriberInterface {
         ],
         '#attached' => ['library' => ['canvas_view_template/live_preview']],
       ];
-      if (isset($render['#canvas_hide_page_chrome'])) {
-        $wrapped['#canvas_hide_page_chrome'] = $render['#canvas_hide_page_chrome'];
-      }
       CacheableMetadata::createFromRenderArray($wrapped)
         ->merge(CacheableMetadata::createFromRenderArray($live))
         ->applyTo($wrapped);
@@ -112,9 +109,6 @@ final class ViewTemplatePreviewSubscriber implements EventSubscriberInterface {
         'content' => $render,
         '#attached' => ['library' => ['canvas_view_template/live_preview']],
       ];
-      if (isset($result->previewRenderArray['#canvas_hide_page_chrome'])) {
-        $render['#canvas_hide_page_chrome'] = $result->previewRenderArray['#canvas_hide_page_chrome'];
-      }
     }
     // Canvas only blocks saving these, so warn while editing.
     $warnings = $this->repeaterWarnings($entity);
@@ -123,12 +117,15 @@ final class ViewTemplatePreviewSubscriber implements EventSubscriberInterface {
         'warning' => [
           '#type' => 'html_tag',
           '#tag' => 'p',
-          '#attributes' => ['class' => ['cvt-preview-warning'], 'role' => 'alert'],
+          '#attributes' => ['class' => ['cvt-preview-warning'], 'role' => 'status'],
           '#value' => \implode(' ', $warnings),
         ],
         'content' => $render,
         '#attached' => ['library' => ['canvas_view_template/live_preview']],
-      ] + \array_intersect_key($render, ['#canvas_hide_page_chrome' => TRUE]);
+      ];
+    }
+    if (isset($result->previewRenderArray['#canvas_hide_page_chrome'])) {
+      $render['#canvas_hide_page_chrome'] = $result->previewRenderArray['#canvas_hide_page_chrome'];
     }
     // Per user, and the choice lives in the private temp store, which
     // invalidates no cache tag when it changes.
@@ -148,9 +145,7 @@ final class ViewTemplatePreviewSubscriber implements EventSubscriberInterface {
    *   One message per problem, empty if there are none.
    */
   private function repeaterWarnings(ViewTemplate $template): array {
-    $autosave = $this->autoSaveManager->getAutoSaveEntity($template);
-    $draft = !$autosave->isEmpty() && $autosave->entity instanceof ViewTemplate ? $autosave->entity : $template;
-    $items = $draft->getComponentTree()->getValue();
+    $items = $this->drafts->latest($template)->getComponentTree()->getValue();
     $warnings = [];
     if (ViewTemplateNoNestedRepeaterConstraintValidator::nestedRepeaterUuids($items) !== []) {
       $warnings[] = $this->t('A "View repeater" cannot be placed inside another "View repeater". Move it beside the first one, or the template cannot be saved.');

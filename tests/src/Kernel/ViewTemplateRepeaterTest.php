@@ -8,6 +8,7 @@ use Drupal\canvas\Entity\Component;
 use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateRepeater;
 use Drupal\Core\Form\FormState;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
@@ -116,11 +117,11 @@ final class ViewTemplateRepeaterTest extends ViewTemplateKernelTestBase {
   }
 
   /**
-   * A limit less than 1 is rejected; empty (no limit) is fine.
+   * A negative limit is rejected; 0 and empty both mean no limit.
    */
   public function testValidateComponentInputLimit(): void {
     $violations = $this->source->validateComponentInput([
-      ViewTemplateRepeater::INPUT_LIMIT => 0,
+      ViewTemplateRepeater::INPUT_LIMIT => -1,
       ViewTemplateRepeater::INPUT_OFFSET => 0,
     ], 'some-uuid', NULL);
     self::assertGreaterThan(0, \count($violations));
@@ -168,6 +169,92 @@ final class ViewTemplateRepeaterTest extends ViewTemplateKernelTestBase {
       ViewTemplateRepeater::INPUT_PAGE_CONDITION_MODE => ViewTemplateRepeater::PAGE_CONDITION_ALL,
     ], 'some-uuid', NULL);
     self::assertCount(0, $violations);
+  }
+
+  /**
+   * Values that are not whole numbers, or a made-up mode, are rejected.
+   *
+   * @param array<string, mixed> $inputs
+   *   The settings.
+   * @param string $key
+   *   The setting that must be reported.
+   */
+  #[DataProvider('wrongTypes')]
+  public function testValidateComponentInputRejectsWrongTypes(array $inputs, string $key): void {
+    $violations = $this->source->validateComponentInput($inputs, 'some-uuid', NULL);
+    self::assertGreaterThan(0, \count($violations));
+    self::assertSame($key, $violations->get(0)->getPropertyPath());
+  }
+
+  /**
+   * Settings that are stored with the wrong type, and where it shows.
+   *
+   * @return array<string, array{0: array<string, mixed>, 1: string}>
+   *   The cases.
+   */
+  public static function wrongTypes(): array {
+    $limit = ViewTemplateRepeater::INPUT_LIMIT;
+    $offset = ViewTemplateRepeater::INPUT_OFFSET;
+    $mode = ViewTemplateRepeater::INPUT_PAGE_CONDITION_MODE;
+    $page = ViewTemplateRepeater::INPUT_PAGE_CONDITION_PAGE;
+    return [
+      'limit as a string' => [[$limit => '2', $offset => 0], $limit],
+      'limit as a fraction' => [[$limit => 1.5, $offset => 0], $limit],
+      'offset as a string' => [[$offset => '2'], $offset],
+      'offset as a boolean' => [[$offset => TRUE], $offset],
+      'mode that does not exist' => [[$offset => 0, $mode => 'bogus'], $mode],
+      'mode as an array' => [[$offset => 0, $mode => ['only']], $mode],
+      'page as a string' => [[$offset => 0, $mode => 'only', $page => '1'], $page],
+    ];
+  }
+
+  /**
+   * Stored settings are read as safe values, whatever their type.
+   *
+   * @param mixed $stored
+   *   What was stored.
+   * @param array<string, mixed> $expected
+   *   The safe values.
+   */
+  #[DataProvider('storedSettings')]
+  public function testNormalizeSettings(mixed $stored, array $expected): void {
+    self::assertSame($expected, ViewTemplateRepeater::normalizeSettings($stored));
+  }
+
+  /**
+   * Stored settings and the safe values read from them.
+   *
+   * @return array<string, array{0: mixed, 1: array<string, mixed>}>
+   *   The cases.
+   */
+  public static function storedSettings(): array {
+    $none = ['limit' => NULL, 'offset' => 0, 'mode' => 'all', 'page' => NULL];
+    return [
+      'nothing stored' => [[], $none],
+      'not an array' => ['junk', $none],
+      'whole numbers' => [
+        ['limit' => 3, 'offset' => 2, 'page_condition_mode' => 'only', 'page_condition_page' => 2],
+        ['limit' => 3, 'offset' => 2, 'mode' => 'only', 'page' => 2],
+      ],
+      'numbers as strings' => [
+        ['limit' => ' 3 ', 'offset' => '2', 'page_condition_mode' => 'except', 'page_condition_page' => '4'],
+        ['limit' => 3, 'offset' => 2, 'mode' => 'except', 'page' => 4],
+      ],
+      'whole floats' => [
+        ['limit' => 3.0, 'offset' => 1.0],
+        ['limit' => 3, 'offset' => 1, 'mode' => 'all', 'page' => NULL],
+      ],
+      'zero limit means no limit' => [['limit' => 0], $none],
+      'negative values' => [['limit' => -2, 'offset' => -5, 'page_condition_page' => -1], $none],
+      'junk values' => [
+        ['limit' => 'abc', 'offset' => [1], 'page_condition_mode' => 'bogus', 'page_condition_page' => '1.5'],
+        $none,
+      ],
+      'page zero' => [
+        ['page_condition_mode' => 'only', 'page_condition_page' => 0],
+        \array_replace($none, ['mode' => 'only']),
+      ],
+    ];
   }
 
   /**

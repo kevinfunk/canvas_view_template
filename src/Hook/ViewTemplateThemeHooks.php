@@ -5,17 +5,14 @@ declare(strict_types=1);
 namespace Drupal\canvas_view_template\Hook;
 
 use Drupal\canvas_view_template\Entity\ViewTemplate;
-use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplatePlaceholder;
 use Drupal\canvas_view_template\Plugin\views\style\ViewTemplateStyle;
-use Drupal\canvas_view_template\Render\ViewConditions;
-use Drupal\canvas_view_template\Render\ViewFieldRenders;
-use Drupal\canvas_view_template\Render\ViewResultSummary;
-use Drupal\canvas_view_template\Render\ViewItemUrls;
+use Drupal\canvas_view_template\Render\ViewRenderDataCollector;
 use Drupal\canvas_view_template\Render\ViewTemplateRenderer;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Hook\Attribute\Hook;
+use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\views\ViewExecutable;
 
 /**
@@ -30,7 +27,15 @@ final class ViewTemplateThemeHooks {
     protected readonly EntityTypeManagerInterface $entityTypeManager,
     protected readonly ModuleHandlerInterface $moduleHandler,
     protected readonly ViewTemplateRenderer $renderer,
+    protected readonly LoggerChannelFactoryInterface $loggerFactory,
   ) {}
+
+  /**
+   * Templates already reported as unusable in this request.
+   *
+   * @var array<string, true>
+   */
+  private array $reported = [];
 
   /**
    * Implements hook_theme_registry_alter().
@@ -69,7 +74,7 @@ final class ViewTemplateThemeHooks {
   #[Hook('views_pre_build')]
   public function viewsPreBuild(ViewExecutable $view): void {
     $view_template = $this->getSelectedViewTemplate($view);
-    if ($view_template !== NULL && $this->treeUses($view_template, ViewTemplateRenderer::VIEW_SUMMARY_COMPONENT_ID)) {
+    if ($view_template !== NULL && \in_array(ViewTemplateRenderer::VIEW_SUMMARY_COMPONENT_ID, $this->componentIds($view_template), TRUE)) {
       $view->get_total_rows = TRUE;
     }
   }
@@ -84,6 +89,7 @@ final class ViewTemplateThemeHooks {
   public function preprocessViewsView(array &$variables): void {
     $cacheability = $this->templateCacheability($variables['view']);
     if ($cacheability !== NULL) {
+      $this->reportUnusable($variables['view']);
       CacheableMetadata::createFromRenderArray($variables)
         ->merge($cacheability)
         ->applyTo($variables);
@@ -100,66 +106,36 @@ final class ViewTemplateThemeHooks {
       // The template was deleted or disabled since the suggestions pass.
       return;
     }
-    // Per-row rendering duplicates Views' own work; only do it when needed.
-    $row_renders = $this->treeNeedsIndividualRowRenders($view_template)
-      ? $this->renderEachRow($variables['view'])
-      : [];
-    $areas = [];
-    foreach (['header', 'footer', 'empty', 'more', 'feed_icons', 'attachment_before', 'attachment_after'] as $key) {
-      if (!empty($variables[$key])) {
-        $areas[$key] = $variables[$key];
-      }
-    }
-    // $variables['title'] is always '' here; getTitle() includes
-    // contextual-filter overrides.
-    $title = $variables['view']->getTitle();
-    if (\is_string($title) && $title !== '') {
-      $areas['title'] = ['#plain_text' => $title];
-    }
     $cacheability = CacheableMetadata::createFromRenderArray($variables);
-    $variables['canvas_view_template_output'] = $this->renderer->render(
-      $view_template,
-      $variables['rows'] ?? [],
-      $variables['exposed'] ?? [],
-      $variables['pager'] ?? [],
-      $row_renders,
-      $variables['view']->getCurrentPage() ?? 0,
-      $areas,
-      $this->treeUses($view_template, ViewTemplateRenderer::VIEW_FIELD_COMPONENT_ID) ? ViewFieldRenders::collect($variables['view']) : [],
-      $this->treeUses($view_template, ViewTemplateRenderer::VIEW_SUMMARY_COMPONENT_ID) ? ViewResultSummary::collect($variables['view']) : [],
-      $this->treeUses($view_template, ViewTemplateRenderer::VIEW_CONDITION_COMPONENT_ID) ? ViewConditions::collect($variables['view']) : [],
-      $this->treeUses($view_template, ViewTemplateRenderer::VIEW_ITEM_LINK_COMPONENT_ID) ? ViewItemUrls::collect($variables['view'], $cacheability) : [],
-    );
+    $data = ViewRenderDataCollector::collect($variables['view'], $variables, '', $this->componentIds($view_template), $cacheability);
+    $variables['canvas_view_template_output'] = $this->renderer->render($view_template, $data);
     $cacheability->applyTo($variables);
   }
 
   /**
-   * Checks whether a view template's tree needs each row rendered.
+   * Logs once per request that a View selects a template it cannot render with.
    */
-  private function treeNeedsIndividualRowRenders(ViewTemplate $view_template): bool {
-    $view_item_component_id = ViewTemplatePlaceholder::SOURCE_PLUGIN_ID . '.' . ViewTemplatePlaceholder::VIEW_ITEM_LOCAL_ID;
-    $repeater_component_ids = [
-      $view_item_component_id,
-      ViewTemplateRenderer::VIEW_REPEATER_COMPONENT_ID,
-    ];
-    foreach ($view_template->getComponentTree()->getValue() as $item) {
-      if (\in_array($item['component_id'] ?? NULL, $repeater_component_ids, TRUE)) {
-        return TRUE;
-      }
+  private function reportUnusable(ViewExecutable $view): void {
+    $id = $this->selectedViewTemplateId($view);
+    if ($id === NULL || isset($this->reported[$id]) || $this->getSelectedViewTemplate($view) !== NULL) {
+      return;
     }
-    return FALSE;
+    $this->reported[$id] = TRUE;
+    $this->loggerFactory->get('canvas_view_template')->warning('The view %view (display %display) uses the view template %template, which is missing or disabled, so it renders without it.', [
+      '%view' => $view->id(),
+      '%display' => $view->current_display,
+      '%template' => $id,
+    ]);
   }
 
   /**
-   * Checks whether a view template places a component.
+   * The component ids a view template's tree places.
+   *
+   * @return string[]
+   *   The ids, with repeats.
    */
-  private function treeUses(ViewTemplate $view_template, string $component_id): bool {
-    foreach ($view_template->getComponentTree()->getValue() as $item) {
-      if (($item['component_id'] ?? NULL) === $component_id) {
-        return TRUE;
-      }
-    }
-    return FALSE;
+  private function componentIds(ViewTemplate $view_template): array {
+    return \array_column($view_template->getComponentTree()->getValue(), 'component_id');
   }
 
   /**
@@ -217,37 +193,13 @@ final class ViewTemplateThemeHooks {
       $options = $style->options;
     }
     elseif ($style === NULL && isset($view->display_handler)) {
-      $style_option = $view->display_handler->getOption('style');
-      $options = \is_array($style_option) && ($style_option['type'] ?? NULL) === ViewTemplateStyle::PLUGIN_ID ? ($style_option['options'] ?? []) : [];
+      $options = ViewTemplateStyle::displayOptions($view) ?? [];
     }
     else {
       return NULL;
     }
     $view_template_id = $options[ViewTemplateStyle::OPTION_KEY] ?? NULL;
     return \is_string($view_template_id) && $view_template_id !== '' ? $view_template_id : NULL;
-  }
-
-  /**
-   * Renders each of a View's result rows individually.
-   *
-   * `#rows` combines all rows; repeaters need each one separately.
-   *
-   * @return array<int, array>
-   *   Each result row's render array, in display order.
-   *
-   * @see \Drupal\views\Plugin\views\row\RowPluginBase::render()
-   */
-  private function renderEachRow(ViewExecutable $view): array {
-    // $rowPlugin is nullable at runtime although its docblock omits `|null`.
-    // @phpstan-ignore booleanNot.alwaysFalse
-    if (!$view->rowPlugin) {
-      return [];
-    }
-    $row_renders = [];
-    foreach ($view->result as $row) {
-      $row_renders[] = $view->rowPlugin->render($row);
-    }
-    return $row_renders;
   }
 
 }
