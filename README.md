@@ -306,7 +306,12 @@ values in `extension/dialog.css` and the top of `extension/app.css` with the
 `rt-BaseMenu*` rules in Canvas's compiled stylesheet (`ui/dist/assets/index.css`
 in the Canvas module) and with `ui/src/components/UnifiedMenu.tsx`. The
 browser tests check the menu's measured sizes, so a drift in this module's own
-values shows up there; a change in Canvas itself does not.
+values shows up there. A change in Canvas itself shows up in
+`CanvasCopiesTest`, which pins a fingerprint of the `.rt-BaseMenu*` rules (it is
+skipped when Canvas's `ui/dist` is not built). It also pins one of
+`ComponentInstanceForm::buildForm()`. When it fails, compare the copy with
+Canvas, change the copy if needed, then put the new fingerprint and Canvas
+version in the test.
 
 ## Coupling to Canvas
 
@@ -325,7 +330,7 @@ no test.
 | `ComponentTreeItemList::renderify()` and Fibers | `ViewTemplateRenderer` | Placeholders silently render nothing | `ViewTemplateRendererTest`, `ViewTemplateRendererEdgeCasesTest` |
 | `CanvasConfigEntityAccessControlHandler` | `ViewTemplateAccessControlHandler` | Access and delete-lock behaviour changes | `ViewTemplateRouteAccessTest`, `ViewTemplatePanelBackendTest` |
 | `AutoSaveManager` | `ViewTemplateDrafts` | Previews show the published template instead of the draft | `ViewTemplateDraftsTest` |
-| `ComponentInstanceForm` (`final`, its `FORM_ID` and a copy of `buildForm()`), `ComponentTreeLoader`, `ComponentSourceManager`, `JsonSchemaPropsComponentSourceBase`, `Fallback`, `FormIdPreRender` | `ViewTemplateComponentInstanceForm` | The settings form for components in a template errors or differs from Canvas's | `ViewTemplateComponentInstanceFormTest`; drift of the copied code: none, compared by hand |
+| `ComponentInstanceForm` (`final`, its `FORM_ID` and a copy of `buildForm()`), `ComponentTreeLoader`, `ComponentSourceManager`, `JsonSchemaPropsComponentSourceBase`, `Fallback`, `FormIdPreRender` | `ViewTemplateComponentInstanceForm` | The settings form for components in a template errors or differs from Canvas's | `ViewTemplateComponentInstanceFormTest`; drift of the copied `buildForm()`: `CanvasCopiesTest` |
 | `ModuleHooks::PAGE_DATA_FORM_ID`, `FormIdPreRender` | `ViewTemplatePreviewForm` | The "Page data" panel loses its AJAX handling | `ViewTemplatePreviewTest` |
 | `canvas.api.form.content_entity` route and its controller | `ViewTemplateEntityFormControllerSubscriber` | A change to Canvas's "Page data" panel is not picked up for view templates | none directly (`ViewTemplatePreviewTest` covers the form) |
 | `PreviewEnvelope` public properties, `PreviewEnvelopeViewSubscriber` at priority 0 | `ViewTemplatePreviewSubscriber`, `ViewTemplateEntityFormFieldsSubscriber` | The editor preview for view templates fails or loses fields | `ViewTemplatePreviewTest`, `ViewTemplateHardeningTest` |
@@ -334,7 +339,7 @@ no test.
 | Route-name prefix `canvas.api.layout.` | `ViewTemplatePreviewHooks`, `ViewTemplatePreviewSubscriber` | Editor previews and the Views preview behave like front-end requests | `ViewTemplatePreviewTest`, `ViewTemplatePageVariantSelectorSubscriberTest` |
 | `CanvasPageVariant` plugin ID with `PREVIEW_KEY` and `VARIANT_ID_KEY`, the `PageVariant` entity | `ViewTemplatePageVariantSelectorSubscriber` | The wrong page template (or none) wraps the view | `ViewTemplatePageVariantSelectorSubscriberTest` |
 | Routes `canvas.boot.entity` and `canvas.boot.app` | `ViewTemplateStyle` (links in the Views UI) | Broken "edit template" links in the Views UI | `ViewTemplateStyleTest` |
-| Canvas page extensions (`canvas_view_template.canvas_extension.yml`) and the compiled Canvas stylesheet | `extension/`, see "Keeping the panel in step with Canvas" | The View templates panel is missing or looks different | `ViewTemplateExtensionTest` and the browser tests (a style change in Canvas itself: none) |
+| Canvas page extensions (`canvas_view_template.canvas_extension.yml`) and the compiled Canvas stylesheet | `extension/`, see "Keeping the panel in step with Canvas" | The View templates panel is missing or looks different | `ViewTemplateExtensionTest` and the browser tests; a change to the menu rules in Canvas's stylesheet: `CanvasCopiesTest` |
 
 ## Known limitations
 
@@ -358,8 +363,8 @@ no test.
   templates therefore use their own copy
   (`src/Form/ViewTemplateComponentInstanceForm.php`, routed by
   `canvas.api.form.component_instance.canvas_view_template`), which must be
-  kept in sync with Canvas when `ComponentInstanceForm` changes. It was
-  last compared against Canvas 1.13.0.
+  kept in sync with Canvas when `ComponentInstanceForm` changes (`CanvasCopiesTest`
+  fails when it does). It was last compared against Canvas 1.13.0.
 
 ### Not built: linking Canvas components to an item's fields
 

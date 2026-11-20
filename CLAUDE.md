@@ -49,6 +49,9 @@ node web/modules/custom/canvas_view_template/tests/js/panel-smoke.test.mjs
   prefix is `view_template`, the route parameter is `{view_template}`, and the
   style plugin is `canvas_view_template`. They look alike and are different
   things. Find every hit with grep and read it. Never blind-replace.
+- `CanvasCopiesTest` fails when Canvas changes code or CSS this module copies.
+  That means "compare the copy", not "broken". Compare, then update the
+  fingerprint and version in the test.
 - Canvas's `@internal` classes are used on purpose; see the coupling table in
   the README. A new use of a Canvas class or route belongs in that table, with
   the test that would catch a break.
