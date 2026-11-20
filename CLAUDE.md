@@ -19,6 +19,8 @@ ddev exec vendor/bin/phpunit -c web/core/phpunit.xml.dist web/modules/custom/can
 ddev exec "vendor/bin/phpunit -c web/core/phpunit.xml.dist web/modules/custom/canvas_view_template/tests/src/FunctionalJavascript"
 node web/modules/custom/canvas_view_template/tests/js/live-preview.test.js
 node web/modules/custom/canvas_view_template/tests/js/style-options.test.js
+node web/modules/custom/canvas_view_template/tests/js/panel.test.mjs
+node web/modules/custom/canvas_view_template/tests/js/panel-smoke.test.mjs
 ```
 
 - The full kernel suite takes 10 to 15 minutes. Run it in the background,
@@ -69,6 +71,16 @@ node web/modules/custom/canvas_view_template/tests/js/style-options.test.js
   `ViewTemplateWithoutDevModeTest` and `ViewTemplateComponentUpdaterTest`,
   which turn it off on purpose and say why. phpcs flags any other test that
   does.
+
+## The panel's scripts
+
+`extension/app.js` is the list and its actions; `names.js` and `strings.js`
+are pure (no DOM) and have Node tests, and `panel-smoke.test.mjs` loads the
+whole panel against a stub page; the rest are split by job (see the
+header of `app.js`). They load as ES modules, which needs Canvas to frame the
+panel with `allow-same-origin` (it does today). Every `t('...')` and `data-t`
+needs an entry in `ViewTemplatePanelStringsController::sources()`; a test
+checks it.
 
 ## Changing a component
 

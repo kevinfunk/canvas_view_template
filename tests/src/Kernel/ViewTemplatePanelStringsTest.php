@@ -36,7 +36,10 @@ final class ViewTemplatePanelStringsTest extends ViewTemplateKernelTestBase {
    */
   public function testTableMatchesWhatThePanelUses(): void {
     $dir = \dirname(__DIR__, 3) . '/extension';
-    $js = (string) \file_get_contents($dir . '/app.js');
+    $js = '';
+    foreach (\glob($dir . '/*.js') ?: [] as $file) {
+      $js .= (string) \file_get_contents($file);
+    }
     $html = (string) \file_get_contents($dir . '/index.html');
 
     $used = [];

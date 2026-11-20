@@ -26,7 +26,11 @@ final class ViewTemplateExtensionTest extends ViewTemplateKernelTestBase {
     $module_path = \dirname(__DIR__, 3);
     self::assertStringEndsWith('/canvas_view_template/extension/index.html', $extension->getUrl());
     self::assertStringEndsWith('/canvas_view_template/extension/icon.svg', $extension->getIcon());
-    foreach (['index.html', 'icon.svg', 'app.js', 'app.css', 'dialog.css'] as $file) {
+    $files = ['index.html', 'icon.svg', 'app.css', 'dialog.css'];
+    foreach (['app', 'api', 'dialog', 'dom', 'host', 'menu', 'names', 'strings'] as $script) {
+      $files[] = $script . '.js';
+    }
+    foreach ($files as $file) {
       self::assertFileExists($module_path . '/extension/' . $file);
     }
   }
