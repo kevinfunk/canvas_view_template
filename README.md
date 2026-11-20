@@ -471,3 +471,13 @@ vendor/bin/phpstan analyze -c web/modules/custom/canvas_view_template/phpstan.ne
 
 The spell check reads `.cspell-project-words.txt`; add project-specific words
 there, one per line.
+
+### Continuous integration
+
+`.gitlab-ci.yml` uses the drupal.org GitLab templates (phpcs, phpstan, PHPUnit
+with the kernel and browser tests, and the lint jobs) on the current and next
+minor core. It adds one job, `node tests`, which runs the four Node tests on
+Node 24 and fails the pipeline. `.eslintrc.json` tells the templates' eslint job
+that `extension/*.js` are ES modules and `tests/js` runs in Node; without it
+core's config reads them as scripts and reports a parse error on `import`.
+`CanvasCopiesTest` compares against the Canvas that `composer` installs there.

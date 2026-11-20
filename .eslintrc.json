@@ -1,0 +1,12 @@
+{
+  "overrides": [
+    {
+      "files": ["extension/*.js"],
+      "parserOptions": { "sourceType": "module" }
+    },
+    {
+      "files": ["tests/js/*.js"],
+      "env": { "node": true }
+    }
+  ]
+}

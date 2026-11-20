@@ -26,13 +26,16 @@ variables:
   OPT_IN_TEST_NEXT_MINOR: '1'
   OPT_IN_TEST_MAX_PHP: '1'
 
-# The Node tests for the two browser scripts need no Drupal, only Node. They are
-# not part of the drupal.org templates, so they may fail without failing the
-# pipeline.
+# The Node tests for the browser scripts need no Drupal, only Node 24 (the
+# panel's ES modules load as .js, which older Node versions refuse). They are
+# not part of the drupal.org templates. The smoke test loads the whole panel
+# against a stub page, so a broken import or a leftover variable fails here,
+# before any browser test runs.
 node tests:
   stage: test
   image: node:24-alpine
-  allow_failure: true
   script:
     - node tests/js/live-preview.test.js
     - node tests/js/style-options.test.js
+    - node tests/js/panel.test.mjs
+    - node tests/js/panel-smoke.test.mjs
