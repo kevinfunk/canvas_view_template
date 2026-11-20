@@ -9,7 +9,7 @@ services:
     tags:
       - { name: event_subscriber }
   Drupal\canvas_view_template\ViewTemplateUsage:
-    arguments: ['@config.factory']
+    arguments: ['@config.factory', '@entity_type.manager']
   Drupal\canvas_view_template\ViewTemplateUninstallValidator:
     arguments: ['@Drupal\canvas_view_template\ViewTemplateUsage']
     tags:
@@ -31,7 +31,6 @@ services:
     class: Drupal\canvas_view_template\EventSubscriber\ViewTemplatePreviewSubscriber
     arguments:
       - '@Drupal\canvas_view_template\Preview\ViewTemplatePreviewSelection'
-      - '@Drupal\canvas_view_template\Preview\ViewTemplateLivePreview'
       - '@url_generator'
       - '@Drupal\canvas_view_template\ViewTemplateDrafts'
     tags:
@@ -46,3 +45,9 @@ services:
     arguments: ['@entity_type.manager', '@router.admin_context', '@Drupal\canvas_view_template\Preview\ViewTemplatePreviewSelection']
     tags:
       - { name: event_subscriber }
+  Drupal\canvas_view_template\Update\ComponentUpdater:
+    arguments:
+      - '@entity_type.manager'
+      - '@Drupal\canvas\AutoSave\AutoSaveManager'
+      - '@extension.path.resolver'
+      - '@config.installer'

@@ -12,6 +12,8 @@ use Drupal\canvas_view_template\Render\ViewRenderData;
 use Drupal\Core\Form\FormState;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\DataProvider;
+use Drupal\canvas_view_template\Render\ViewTemplateRenderer;
 
 /**
  * Tests "View result summary": for example "Displaying 1 - 10 of 54".
@@ -152,6 +154,44 @@ final class ViewTemplateSummaryTest extends ViewTemplateKernelTestBase {
     // Custom names would not survive the client's form serialization.
     self::assertArrayNotHasKey('#name', $form[ViewTemplateSummary::INPUT_FORMAT]);
     self::assertArrayNotHasKey('#name', $form[ViewTemplateSummary::INPUT_ELEMENT]);
+  }
+
+  /**
+   * Only formats that need the total ask Views to count it.
+   */
+  #[DataProvider('needsTotalProvider')]
+  public function testNeedsTotal(?string $format, bool $expected): void {
+    $item = [
+      'component_id' => ViewTemplateRenderer::VIEW_SUMMARY_COMPONENT_ID,
+      'inputs' => $format === NULL ? [] : ['format' => $format],
+    ];
+    self::assertSame($expected, ViewResultSummary::needsTotal([$item]));
+  }
+
+  /**
+   * Formats and whether they need the total.
+   *
+   * @return array<string, array{string|null, bool}>
+   *   The format (NULL for the default) and the expectation.
+   */
+  public static function needsTotalProvider(): array {
+    return [
+      'default format' => [NULL, TRUE],
+      'total' => ['Of @total', TRUE],
+      'end' => ['Up to @end', TRUE],
+      'page count' => ['Page @current_page of @page_count', TRUE],
+      'this page only' => ['@start to @current_record_count on @label', FALSE],
+      'no tokens' => ['Results', FALSE],
+    ];
+  }
+
+  /**
+   * Without a summary placed, nothing needs the total.
+   */
+  public function testNoSummaryNeedsNoTotal(): void {
+    $other = ['component_id' => 'canvas_view_template_title.view_title', 'inputs' => ['format' => '@total']];
+    self::assertFalse(ViewResultSummary::needsTotal([$other]));
+    self::assertFalse(ViewResultSummary::needsTotal([]));
   }
 
 }

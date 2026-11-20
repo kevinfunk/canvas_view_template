@@ -42,7 +42,7 @@ final class ViewTemplateRepeaterContentsTest extends ViewTemplateKernelTestBase 
       $repeater = $this->treeItem(self::REPEATER);
       $inside = $this->treeItem($component_id, $repeater['uuid'], ViewTemplateRepeater::SLOT_NAME);
       $messages = $this->messages([$repeater, $inside]);
-      self::assertContains(\sprintf('A "%s" cannot be placed inside a "View repeater": it shows the whole view, not one item. Place it beside the repeater.', $label), $messages, $component_id);
+      self::assertContains(\sprintf('A "%s" cannot be placed inside a "View repeater": it shows the whole view, not one item. Place it beside the repeater.', (string) $label), $messages, $component_id);
 
       // Beside the repeater it is fine.
       $beside = $this->treeItem($component_id);

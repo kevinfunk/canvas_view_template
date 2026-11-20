@@ -60,7 +60,8 @@ final class ViewTemplateLivePreviewController extends ControllerBase {
     // render context their metadata (libraries included) would be discarded,
     // since a JsonResponse carries none.
     $context = new RenderContext();
-    $build = $this->renderer->executeInRenderContext($context, fn() => $this->livePreview->build($view_template)) ?? ['#markup' => ''];
+    $built = $this->renderer->executeInRenderContext($context, fn() => $this->livePreview->build($view_template));
+    $build = $built ?? ['#markup' => ''];
     if (!$context->isEmpty()) {
       BubbleableMetadata::createFromRenderArray($build)->merge($context->pop())->applyTo($build);
     }
@@ -81,6 +82,8 @@ final class ViewTemplateLivePreviewController extends ControllerBase {
 
     $response = new JsonResponse([
       'html' => $html,
+      // No View chosen, or it cannot be shown to this user.
+      'unavailable' => $built === NULL,
       'css' => $this->urls($css),
       'js' => $this->urls(\array_merge($header_js, $footer_js)),
       'settings' => $settings ?: new \stdClass(),

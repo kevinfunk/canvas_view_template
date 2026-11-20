@@ -12,23 +12,29 @@
     return;
   }
   var hint = document.querySelector('.cvt-preview-hint');
-  if (hint) {
+  var live = document.querySelector('.cvt-live-preview');
+  var edit = document.querySelector('.cvt-edit-preview');
+  // The live content is fetched on first use; until it arrives, the editor's
+  // placeholders stay shown.
+  var pending = !!live && live.hasAttribute('data-cvt-lazy');
+  if (hint && !live) {
     hint.hidden = false;
   }
-  var live = document.querySelector('.cvt-live-preview');
   if (!live) {
     return;
   }
-  live.hidden = false;
-  var edit = document.querySelector('.cvt-edit-preview');
-  if (edit) {
-    edit.hidden = true;
+  if (!pending) {
+    live.hidden = false;
+    if (edit) {
+      edit.hidden = true;
+    }
   }
 
   var endpoint = live.getAttribute('data-cvt-url');
   var busy = false;
   var queued = null;
   var notice = null;
+  var initial = false;
 
   // Shows why the content didn't change; the content already shown stays.
   function showError(failure) {
@@ -262,6 +268,21 @@
         return response.ok ? response.text().then(parse) : Promise.reject(response);
       })
       .then(function (result) {
+        if (pending) {
+          pending = false;
+          if (result.unavailable) {
+            // Nothing to show: the placeholders and the reason stay.
+            if (hint) {
+              hint.hidden = false;
+            }
+            return null;
+          }
+          live.hidden = false;
+          if (edit) {
+            edit.hidden = true;
+          }
+          initial = true;
+        }
         applySettings(result.settings);
         return loadAssets(result).then(function () {
           var settings = window.drupalSettings;
@@ -271,13 +292,14 @@
           clearError();
           attachToLive(settings);
           restoreFocus(focus);
-          if (Drupal.announce) {
+          if (Drupal.announce && !initial) {
             Drupal.announce(Drupal.t('Results updated'));
           }
         });
       })
       .catch(showError)
       .then(function () {
+        initial = false;
         busy = false;
         live.removeAttribute('aria-busy');
         if (queued !== null) {
@@ -368,4 +390,8 @@
     var at = href.indexOf('?');
     load(at === -1 ? '' : href.slice(at + 1).split('#')[0]);
   }, true);
+
+  if (pending) {
+    load('');
+  }
 })();

@@ -398,6 +398,28 @@ and makes it active, and moves placements if the component is replaced. Slot
 titles and descriptions are plain English for this reason: translated, the hash
 would depend on the interface language.
 
+`Drupal\canvas_view_template\Update\ComponentUpdater` does the work, in trees
+and in unpublished drafts, and is safe to run twice:
+
+```php
+/**
+ * Adds the "Element" setting to "View title".
+ */
+function canvas_view_template_update_11001(): void {
+  $updater = \Drupal::service(ComponentUpdater::class);
+  $old_version = Component::load('canvas_view_template_title.view_title')->getActiveVersion();
+  if ($updater->updateToShipped('canvas_view_template_title.view_title')) {
+    $updater->migratePlacements('canvas_view_template_title.view_title', $old_version, [
+      'element' => 'h2',
+    ]);
+  }
+}
+```
+
+Use `movePlacements()` instead when one component replaces another, before
+deleting the old one, and `addMissing()` when a release only adds components.
+`ViewTemplateComponentUpdaterTest` simulates an older site.
+
 ## Testing
 
 Kernel tests (fast, no browser):

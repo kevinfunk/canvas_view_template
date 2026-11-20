@@ -35,25 +35,28 @@ final class ViewTemplateDuplicateController extends ControllerBase {
    * Creates the copy, or answers with what is wrong with the request.
    */
   public function duplicate(ViewTemplate $view_template, Request $request): JsonResponse {
+    if (!$this->entityTypeManager()->getAccessControlHandler(ViewTemplate::ENTITY_TYPE_ID)->createAccess()) {
+      return self::failure((string) $this->t('You are not allowed to create view templates.'), 403);
+    }
     $body = \json_decode($request->getContent(), TRUE);
     $id = \is_array($body) && \is_string($body['id'] ?? NULL) ? \trim($body['id']) : '';
     $label = \is_array($body) && \is_string($body['label'] ?? NULL) ? \trim($body['label']) : '';
 
     if ($label === '') {
-      return self::failure('Enter a label.', 422);
+      return self::failure((string) $this->t('Enter a label.'), 422);
     }
     if (\preg_match('/^[a-z][a-z0-9_]{0,63}$/', $id) !== 1) {
-      return self::failure('The machine name must start with a letter and use only lowercase letters, numbers and underscores.', 422);
+      return self::failure((string) $this->t('The machine name must start with a letter and use only lowercase letters, numbers and underscores.'), 422);
     }
     if ($this->entityTypeManager()->getStorage(ViewTemplate::ENTITY_TYPE_ID)->load($id) !== NULL) {
-      return self::failure(\sprintf('A view template with the machine name "%s" already exists.', $id), 409);
+      return self::failure((string) $this->t('A view template with the machine name "@id" already exists.', ['@id' => $id]), 409);
     }
 
     $source = $this->drafts->latest($view_template);
     $copy = ViewTemplate::create([
       'id' => $id,
       'label' => $label,
-      'description' => $view_template->get('description'),
+      'description' => $source->get('description'),
       'component_tree' => $source->getComponentTree()->getValue(),
     ]);
     // Canvas only validates a tree when it is published, and a draft may not

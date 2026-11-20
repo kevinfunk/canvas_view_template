@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\canvas_view_template\Render;
 
+use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateSummary;
 use Drupal\views\ViewExecutable;
 
 /**
@@ -33,6 +34,36 @@ final class ViewResultSummary {
       '@current_record_count' => 'the number of items on this page',
       '@page_count' => 'the number of pages',
     ];
+  }
+
+  /**
+   * Whether a tree places a summary whose format needs the total row count.
+   *
+   * Only @total, @end and @page_count do; counting costs a COUNT query.
+   *
+   * @param array<int, array<string, mixed>> $tree
+   *   The component tree items.
+   */
+  public static function needsTotal(array $tree): bool {
+    foreach ($tree as $item) {
+      if (($item['component_id'] ?? NULL) !== ViewTemplateRenderer::VIEW_SUMMARY_COMPONENT_ID) {
+        continue;
+      }
+      $inputs = $item['inputs'] ?? [];
+      if (\is_string($inputs)) {
+        $inputs = \json_decode($inputs, TRUE);
+      }
+      $format = \is_array($inputs) ? ($inputs[ViewTemplateSummary::INPUT_FORMAT] ?? ViewTemplateSummary::DEFAULT_FORMAT) : ViewTemplateSummary::DEFAULT_FORMAT;
+      if (!\is_string($format)) {
+        $format = ViewTemplateSummary::DEFAULT_FORMAT;
+      }
+      foreach (['@total', '@end', '@page_count'] as $token) {
+        if (\str_contains($format, $token)) {
+          return TRUE;
+        }
+      }
+    }
+    return FALSE;
   }
 
   /**

@@ -7,6 +7,7 @@ namespace Drupal\canvas_view_template\Hook;
 use Drupal\canvas_view_template\Entity\ViewTemplate;
 use Drupal\canvas_view_template\Plugin\views\style\ViewTemplateStyle;
 use Drupal\canvas_view_template\Render\ViewRenderDataCollector;
+use Drupal\canvas_view_template\Render\ViewResultSummary;
 use Drupal\canvas_view_template\Render\ViewTemplateRenderer;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
@@ -74,7 +75,7 @@ final class ViewTemplateThemeHooks {
   #[Hook('views_pre_build')]
   public function viewsPreBuild(ViewExecutable $view): void {
     $view_template = $this->getSelectedViewTemplate($view);
-    if ($view_template !== NULL && \in_array(ViewTemplateRenderer::VIEW_SUMMARY_COMPONENT_ID, $this->componentIds($view_template), TRUE)) {
+    if ($view_template !== NULL && ViewResultSummary::needsTotal($view_template->getComponentTree()->getValue())) {
       $view->get_total_rows = TRUE;
     }
   }

@@ -6,6 +6,8 @@ namespace Drupal\canvas_view_template;
 
 use Drupal\canvas_view_template\Plugin\views\style\ViewTemplateStyle;
 use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Url;
 use Symfony\Component\Routing\Exception\RouteNotFoundException;
 
@@ -21,7 +23,59 @@ class ViewTemplateUsage {
 
   public function __construct(
     private readonly ConfigFactoryInterface $configFactory,
+    private readonly EntityTypeManagerInterface $entityTypeManager,
   ) {}
+
+  /**
+   * Whether an account may see a View display, or any display of a View.
+   *
+   * Used to keep names of Views the account cannot access out of lists.
+   *
+   * @param string $view_id
+   *   The View.
+   * @param string|null $display_id
+   *   The display, or NULL for "any display of the View".
+   * @param \Drupal\Core\Session\AccountInterface $account
+   *   The account.
+   */
+  public function canSee(string $view_id, ?string $display_id, AccountInterface $account): bool {
+    if ($account->hasPermission('administer views')) {
+      return TRUE;
+    }
+    $view = $this->entityTypeManager->getStorage('view')->load($view_id);
+    if ($view === NULL) {
+      return FALSE;
+    }
+    // ViewExecutable::access() treats NULL as "no displays".
+    $displays = $display_id !== NULL ? [$display_id] : \array_keys($view->get('display'));
+    // @phpstan-ignore-next-line method.notFound
+    return $view->getExecutable()->access($displays, $account);
+  }
+
+  /**
+   * Drops the entries the account cannot see, and Views UI links it cannot use.
+   *
+   * @param list<array{view: string, display: string, label: string, url: string}> $entries
+   *   Entries from ::displaysUsing() or ::displaysByTemplate().
+   * @param \Drupal\Core\Session\AccountInterface $account
+   *   The account.
+   *
+   * @return list<array{view: string, display: string, label: string, url: string}>
+   *   The entries for the account.
+   */
+  public function visibleTo(array $entries, AccountInterface $account): array {
+    $visible = [];
+    foreach ($entries as $entry) {
+      if (!$this->canSee($entry['view'], $entry['display'], $account)) {
+        continue;
+      }
+      if (!$account->hasPermission('administer views')) {
+        $entry['url'] = '';
+      }
+      $visible[] = $entry;
+    }
+    return $visible;
+  }
 
   /**
    * The View displays using a view template.

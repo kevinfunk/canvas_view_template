@@ -35,6 +35,13 @@
     close: document.getElementById('close-button'),
   };
 
+  // Translated by the server, keyed by the English text; `@name` marks a
+  // placeholder. Without the table the English text is shown.
+  let strings = {};
+  let langcode = document.documentElement.lang || 'en';
+  const t = (source, args = {}) =>
+    (strings[source] ?? source).replace(/@(\w+)/g, (match, name) => (name in args ? String(args[name]) : match));
+
   const element = (tag, className, props = {}, doc = document) => {
     const node = doc.createElement(tag);
     if (className) {
@@ -92,13 +99,18 @@
     );
   };
 
+  const list = (items) => {
+    try {
+      return new Intl.ListFormat(langcode, { style: 'long', type: 'conjunction' }).format(items);
+    } catch {
+      return items.join(', ');
+    }
+  };
+
   const summarize = (labels) => {
     const shown = labels.slice(0, SUMMARY_MAX);
     const more = labels.length - shown.length;
-    if (more > 0) {
-      return `${shown.join(', ')} and ${more} more`;
-    }
-    return shown.length > 1 ? `${shown.slice(0, -1).join(', ')} and ${shown.at(-1)}` : shown[0];
+    return list(more > 0 ? [...shown, t('@count more', { count: more })] : shown);
   };
 
   const slug = (label) =>
@@ -276,7 +288,7 @@
     const make = (tag, className, props) => element(tag, className, props, doc);
     const menu = make('div', 'cvt-menu');
     menu.setAttribute('role', 'menu');
-    menu.setAttribute('aria-label', `Actions for ${name}`);
+    menu.setAttribute('aria-label', t('Actions for @name', { name }));
     const separator = () => make('div', 'cvt-menu__separator', { role: 'separator' });
     menu.append(make('div', 'cvt-menu__label', { textContent: name, title: name }));
     menu.lastChild.setAttribute('role', 'presentation');
@@ -372,7 +384,7 @@
       const label = make('label', 'cvt-field');
       const caption = make('span', '', { textContent: field.label });
       if (field.optional) {
-        caption.append(' ', make('em', '', { textContent: '(optional)' }));
+        caption.append(' ', make('em', '', { textContent: t('(optional)') }));
       }
       const input = make('input', '', { type: 'text', autocomplete: 'off', value: field.value ?? '' });
       input.addEventListener('input', () => options.onInput?.(field.key, input.value, inputs));
@@ -384,7 +396,7 @@
     const errorId = `${titleId}-error`;
     const error = make('p', 'cvt-error', { id: errorId, hidden: true });
     error.setAttribute('role', 'alert');
-    const cancel = make('button', `cvt-button cvt-button--${options.cancelClass}`, { type: 'button', textContent: 'Cancel' });
+    const cancel = make('button', `cvt-button cvt-button--${options.cancelClass}`, { type: 'button', textContent: t('Cancel') });
     const confirm = make('button', `cvt-button cvt-button--${options.confirmClass}`, { type: 'button', textContent: options.confirmLabel });
     box.append(error, make('div', 'cvt-dialog__actions'));
     box.lastChild.append(...(options.hideCancel ? [confirm] : [cancel, confirm]));
@@ -523,10 +535,10 @@
 
   const usageText = (id) => {
     if (!usage) {
-      return 'Usage unknown';
+      return t('Usage unknown');
     }
     const labels = (usage[id] ?? []).map((display) => display.label);
-    return labels.length ? `Used by ${summarize(labels)}` : 'Not used';
+    return labels.length ? t('Used by @views', { views: summarize(labels) }) : t('Not used');
   };
 
   const usedBy = async (template) => {
@@ -556,15 +568,15 @@
     main.addEventListener('click', () => openEditor(template.id));
 
     const dots = element('button', 'node__dots', { type: 'button' });
-    dots.setAttribute('aria-label', `Actions for ${name}`);
+    dots.setAttribute('aria-label', t('Actions for @name', { name }));
     dots.setAttribute('aria-haspopup', 'menu');
     dots.setAttribute('aria-expanded', 'false');
     dots.innerHTML = DOTS_ICON;
 
     const entries = [
-      { label: 'Edit', run: () => openEditor(template.id) },
-      { label: 'Duplicate', run: () => openDuplicateDialog(template, dots) },
-      { label: 'Delete', danger: true, run: () => openDeleteDialog(template, dots) },
+      { label: t('Edit'), run: () => openEditor(template.id) },
+      { label: t('Duplicate'), run: () => openDuplicateDialog(template, dots) },
+      { label: t('Delete'), danger: true, run: () => openDeleteDialog(template, dots) },
     ];
     dots.addEventListener('click', (event) => {
       event.stopPropagation();
@@ -602,12 +614,12 @@
       render(templates);
       els.newButton.hidden = false;
       if (announceCount) {
-        announce(templates.length === 1 ? '1 view template.' : `${templates.length} view templates.`);
+        announce(templates.length === 1 ? t('1 view template.') : t('@count view templates.', { count: templates.length }));
       }
     } catch (error) {
       els.loading.hidden = true;
       els.newButton.hidden = true;
-      showError(`Could not load view templates: ${error.message}`);
+      showError(t('Could not load view templates: @error', { error: error.message }));
     }
   };
   els.retry.addEventListener('click', () => {
@@ -635,9 +647,12 @@
     const name = template.label || template.id;
     if (views.length) {
       showDialog({
-        title: 'Template is in use',
-        message: `"${name}" is used by ${summarize(views)}. Choose another template in the Format settings of ${views.length === 1 ? 'that view' : 'those views'} first, then delete it.`,
-        confirmLabel: 'OK',
+        title: t('Template is in use'),
+        message:
+          views.length === 1
+            ? t('"@name" is used by @views. Choose another template in the Format settings of that view first, then delete it.', { name, views: summarize(views) })
+            : t('"@name" is used by @views. Choose another template in the Format settings of those views first, then delete it.', { name, views: summarize(views) }),
+        confirmLabel: t('OK'),
         confirmClass: 'solid',
         cancelClass: 'outline',
         hideCancel: true,
@@ -647,9 +662,9 @@
       return;
     }
     showDialog({
-      title: 'Delete template',
-      message: `Are you sure you want to delete "${name}"? This action cannot be undone.`,
-      confirmLabel: 'Delete',
+      title: t('Delete template'),
+      message: t('Are you sure you want to delete "@name"? This action cannot be undone.', { name }),
+      confirmLabel: t('Delete'),
       confirmClass: 'danger',
       cancelClass: 'outline',
       focus: 'cancel',
@@ -658,10 +673,10 @@
         try {
           await request(`${api}/${encodeURIComponent(template.id)}`, 'DELETE');
         } catch (failure) {
-          throw new Error(`Could not delete "${name}": ${failure.message}`);
+          throw new Error(t('Could not delete "@name": @error', { name, error: failure.message }));
         }
         await load({ announceCount: false });
-        announce(`Deleted "${name}".`);
+        announce(t('Deleted "@name".', { name }));
       },
     });
   };
@@ -680,7 +695,8 @@
    * The label + machine name dialog shared by Create and Duplicate.
    *
    * `suggestId` derives the machine name from the label until it is edited by
-   * hand; `body(id, label, values)` is posted to `url`; `verb` words a failure.
+   * hand; `body(id, label, values)` is posted to `url`; `verb` is `create` or
+   * `duplicate`, to word a failure.
    */
   const openNameDialog = ({ title, message, fields, confirmLabel, trigger, suggestId, url, verb, body }) => {
     closeMenu();
@@ -706,17 +722,21 @@
         const id = values.id.trim();
         const label = values.label.trim();
         if (label === '') {
-          throw invalid('Enter a label.', 'label');
+          throw invalid(t('Enter a label.'), 'label');
         }
         if (!MACHINE_NAME.test(id)) {
-          throw invalid('The machine name must start with a letter and use only lowercase letters, numbers and underscores.', 'id');
+          throw invalid(t('The machine name must start with a letter and use only lowercase letters, numbers and underscores.'), 'id');
         }
         try {
           await request(url, 'POST', body(id, label, values));
         } catch (failure) {
           throw failure.status === 409
-            ? invalid(`A view template with the machine name "${id}" already exists.`, 'id')
-            : new Error(`Could not ${verb} the view template: ${failure.message}`);
+            ? invalid(t('A view template with the machine name "@id" already exists.', { id }), 'id')
+            : new Error(
+                verb === 'create'
+                  ? t('Could not create the view template: @error', { error: failure.message })
+                  : t('Could not duplicate the view template: @error', { error: failure.message }),
+              );
         }
         openEditor(id);
       },
@@ -724,15 +744,15 @@
   };
 
   const openDuplicateDialog = (template, trigger) => {
-    const label = `Copy of ${template.label || template.id}`;
+    const label = t('Copy of @label', { label: template.label || template.id });
     openNameDialog({
-      title: 'Duplicate view template',
-      message: 'Starts from what the editor shows now, including changes not yet published. Views keep using the original until you choose the copy in their Format settings.',
+      title: t('Duplicate view template'),
+      message: t('Starts from what the editor shows now, including changes not yet published. Views keep using the original until you choose the copy in their Format settings.'),
       fields: [
-        { key: 'label', label: 'Label', value: label },
-        { key: 'id', label: 'Machine name', value: copyIdFor(label) },
+        { key: 'label', label: t('Label'), value: label },
+        { key: 'id', label: t('Machine name'), value: copyIdFor(label) },
       ],
-      confirmLabel: 'Duplicate and edit',
+      confirmLabel: t('Duplicate and edit'),
       trigger,
       suggestId: copyIdFor,
       url: `${base}/canvas-view-template/duplicate/${encodeURIComponent(template.id)}`,
@@ -743,13 +763,13 @@
 
   const openCreateDialog = () => {
     openNameDialog({
-      title: 'New view template',
+      title: t('New view template'),
       fields: [
-        { key: 'label', label: 'Label' },
-        { key: 'id', label: 'Machine name' },
-        { key: 'description', label: 'Description', optional: true },
+        { key: 'label', label: t('Label') },
+        { key: 'id', label: t('Machine name') },
+        { key: 'description', label: t('Description'), optional: true },
       ],
-      confirmLabel: 'Create and edit',
+      confirmLabel: t('Create and edit'),
       suggestId: (value) => (value.trim() ? slug(value) : ''),
       url: api,
       verb: 'create',
@@ -761,5 +781,26 @@
   };
   els.newButton.addEventListener('click', openCreateDialog);
 
-  load();
+  // Translates the page's own text, then loads the list. Without the table
+  // (the request failed) the English text stays.
+  const start = async () => {
+    try {
+      const table = await getJson(`${base}/canvas-view-template/panel-strings`);
+      strings = table.strings ?? {};
+      langcode = table.langcode || langcode;
+      document.documentElement.lang = langcode;
+      document.documentElement.dir = table.dir || 'ltr';
+    } catch {
+      // Keep English.
+    }
+    document.title = t('View templates');
+    for (const node of document.querySelectorAll('[data-t]')) {
+      node.textContent = t(node.dataset.t);
+    }
+    for (const node of document.querySelectorAll('[data-t-aria-label]')) {
+      node.setAttribute('aria-label', t(node.dataset.tAriaLabel));
+    }
+    load();
+  };
+  start();
 })();

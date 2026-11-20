@@ -47,7 +47,16 @@ function setup(options) {
   const body = el('body');
   head.appendChild(el('link', { rel: 'stylesheet', href: '/core/misc/known.css?x' }));
   head.appendChild(el('script', { src: '/core/misc/known.js' }));
-  const live = el('div', { class: 'cvt-live-preview', 'data-cvt-url': '/lp/t' }, body);
+  const liveAttrs = { class: 'cvt-live-preview', 'data-cvt-url': '/lp/t' };
+  if (options && options.lazy) {
+    liveAttrs['data-cvt-lazy'] = '';
+  }
+  const live = el('div', { class: 'cvt-live-preview' }, body);
+  Object.assign(live.attrs, liveAttrs);
+  live.hidden = !!(options && options.lazy);
+  const hint = el('p', { class: 'cvt-preview-hint' }, body);
+  hint.hidden = true;
+  const edit = el('div', { class: 'cvt-edit-preview' }, body);
   const pager = el('ul', { class: 'pager' }, live);
   const pagerLink = el('a', { href: '?page=1' }, pager);
   const pathPagerLink = el('a', { href: '/foo?page=2' }, pager);
@@ -67,7 +76,9 @@ function setup(options) {
   const fetches = [];
   const document = {
     head, body,
-    querySelector(sel) { return sel === '.cvt-live-preview' ? live : null; },
+    querySelector(sel) {
+      return { '.cvt-live-preview': live, '.cvt-preview-hint': hint, '.cvt-edit-preview': edit }[sel] || null;
+    },
     querySelectorAll(sel) { return (sel.startsWith('link') ? head.children.filter((c) => c.tagName === 'LINK') : head.children.filter((c) => c.tagName === 'SCRIPT')); },
     createElement(tag) { return el(tag); },
   };
@@ -119,7 +130,7 @@ function setup(options) {
       preventDefault() { this.prevented = true; }, stopPropagation() { this.stopped = true; } }, extra || {});
     return e;
   }
-  return { document, found, listeners, log, fetches, live, pagerLink, pathPagerLink, plainLink, queryLink, otherQuery, blank, form, apply, reset, text, event, notice, window };
+  return { hint, edit, document, found, listeners, log, fetches, live, pagerLink, pathPagerLink, plainLink, queryLink, otherQuery, blank, form, apply, reset, text, event, notice, window };
 }
 
 function respond(f, body, status) {
@@ -133,6 +144,40 @@ async function check(name, fn) {
 }
 
 (async () => {
+  await check('lazy: the content is fetched on open and then shown', async () => {
+    const s = setup({ lazy: true });
+    assert.strictEqual(s.fetches.length, 1);
+    assert.ok(s.fetches[0].url.startsWith('/lp/t'), s.fetches[0].url);
+    assert.strictEqual(s.live.hidden, true);
+    assert.strictEqual(s.edit.hidden, false);
+    respond(s.fetches[0], { html: '<p>real</p>', unavailable: false, css: [], js: [], settings: {} });
+    await tick(); await tick();
+    assert.strictEqual(s.live.hidden, false);
+    assert.strictEqual(s.edit.hidden, true);
+    assert.strictEqual(s.hint.hidden, true);
+    assert.ok(s.log.includes('html'));
+    assert.ok(!s.log.some((e) => Array.isArray(e) && e[0] === 'announce'), 'the first load is not announced');
+  });
+
+  await check('lazy: nothing to show keeps the placeholders and shows the reason', async () => {
+    const s = setup({ lazy: true });
+    respond(s.fetches[0], { html: '', unavailable: true, css: [], js: [], settings: {} });
+    await tick(); await tick();
+    assert.strictEqual(s.live.hidden, true);
+    assert.strictEqual(s.edit.hidden, false);
+    assert.strictEqual(s.hint.hidden, false);
+    assert.ok(!s.log.includes('html'));
+  });
+
+  await check('lazy: a failed first load keeps the placeholders and says so', async () => {
+    const s = setup({ lazy: true });
+    respond(s.fetches[0], 'x', 500);
+    await tick(); await tick();
+    assert.strictEqual(s.live.hidden, true);
+    assert.strictEqual(s.edit.hidden, false);
+    assert.ok(s.notice() && !s.notice().hidden);
+  });
+
   await check('page state is sent with the query', async () => {
     const s = setup();
     s.listeners.click(s.event(s.pagerLink));

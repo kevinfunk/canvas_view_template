@@ -308,8 +308,10 @@ final class ViewTemplateField extends ViewTemplateComponentSourceBase implements
     if ($source === 'all') {
       // Raw config: building every View's handlers would be slow on big sites.
       $config_factory = \Drupal::configFactory();
+      $usage = \Drupal::service(ViewTemplateUsage::class);
+      $account = \Drupal::currentUser();
       foreach ($config_factory->loadMultiple($config_factory->listAll('views.view.')) as $config) {
-        if (!$config->get('status')) {
+        if (!$config->get('status') || !$usage->canSee((string) $config->get('id'), NULL, $account)) {
           continue;
         }
         foreach ($config->get('display.default.display_options.fields') ?? [] as $id => $field) {
@@ -319,7 +321,7 @@ final class ViewTemplateField extends ViewTemplateComponentSourceBase implements
     }
     foreach ($displays as $choice) {
       $view = Views::getView($choice['view']);
-      if ($view === NULL || !$view->setDisplay($choice['display'])) {
+      if ($view === NULL || !$view->setDisplay($choice['display']) || !$view->access($choice['display'])) {
         continue;
       }
       foreach ($view->display_handler->getHandlers('field') as $id => $handler) {

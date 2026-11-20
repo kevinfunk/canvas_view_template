@@ -133,16 +133,28 @@ final class ViewTemplateStyle extends StylePluginBase {
     parent::buildOptionsForm($form, $form_state);
 
     $view_templates = $this->entityTypeManager->getStorage(ViewTemplate::ENTITY_TYPE_ID)->loadMultiple();
-    $options = ['' => $this->t('- None -')];
+    $templates = [];
     foreach ($view_templates as $view_template) {
       \assert($view_template instanceof ViewTemplate);
-      $options[$view_template->id()] = $view_template->label();
+      $label = (string) $view_template->label();
+      $templates[$view_template->id()] = $view_template->status() ? $label : (string) $this->t('@label (disabled)', ['@label' => $label]);
+    }
+    \asort($templates, SORT_NATURAL | SORT_FLAG_CASE);
+    $options = ['' => $this->t('- None -')] + $templates;
+
+    // Saving would otherwise quietly turn a deleted template into "- None -".
+    $stored = $this->options[self::OPTION_KEY] ?? NULL;
+    $missing = \is_string($stored) && $stored !== '' && !isset($templates[$stored]);
+    if ($missing) {
+      $options[$stored] = $this->t('- Missing: @id -', ['@id' => $stored]);
     }
 
     $form[self::OPTION_KEY] = [
       '#type' => 'select',
       '#title' => $this->t('View template'),
-      '#description' => $this->t('The Canvas layout this display renders through.'),
+      '#description' => $missing
+        ? $this->t('The saved view template "@id" no longer exists, so this display renders without it. Choose another template, or save to keep the setting.', ['@id' => $stored])
+        : $this->t('The Canvas layout this display renders through.'),
       '#options' => $options,
       '#default_value' => $this->options[self::OPTION_KEY] ?? '',
       '#attributes' => ['data-cvt-template-select' => ''],
@@ -150,7 +162,7 @@ final class ViewTemplateStyle extends StylePluginBase {
 
     // Links open in a new tab so unsaved View edits are not lost.
     $current = $this->options[self::OPTION_KEY] ?? NULL;
-    $current = $current !== NULL && isset($options[$current]) ? $current : NULL;
+    $current = \is_string($current) && isset($templates[$current]) ? $current : NULL;
     $edit_urls = [];
     foreach (\array_keys($view_templates) as $template_id) {
       $edit_urls[$template_id] = Url::fromRoute('canvas.boot.entity', [

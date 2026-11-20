@@ -79,6 +79,7 @@ final class ViewTemplateRouteAccessTest extends ViewTemplateKernelTestBase {
     return [
       'usage of one template' => ['canvas_view_template.usage', ['view_template' => 'sample']],
       'usage of all templates' => ['canvas_view_template.usage_all', []],
+      'panel strings' => ['canvas_view_template.panel_strings', []],
       'duplicate' => ['canvas_view_template.duplicate', ['view_template' => 'sample']],
     ];
   }

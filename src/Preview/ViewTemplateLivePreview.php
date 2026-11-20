@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\canvas_view_template\Preview;
 
 use Drupal\canvas_view_template\Entity\ViewTemplate;
+use Drupal\canvas_view_template\Render\ViewResultSummary;
 use Drupal\canvas_view_template\Render\ViewTemplateRenderer;
 use Drupal\canvas_view_template\ViewTemplateDrafts;
 use Drupal\Core\Cache\CacheableMetadata;
@@ -35,7 +36,7 @@ final class ViewTemplateLivePreview {
       return NULL;
     }
     $draft = $this->drafts->latest($template);
-    $uses_summary = \in_array(ViewTemplateRenderer::VIEW_SUMMARY_COMPONENT_ID, \array_column($draft->getComponentTree()->getValue(), 'component_id'), TRUE);
+    $uses_summary = ViewResultSummary::needsTotal($draft->getComponentTree()->getValue());
     $pieces = $this->builder->build($choice['view'], $choice['display'], $uses_summary);
     if ($pieces === NULL) {
       return NULL;

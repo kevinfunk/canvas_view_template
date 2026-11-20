@@ -187,4 +187,30 @@ final class ViewTemplateStyleTest extends ViewTemplateKernelTestBase {
     }
   }
 
+  /**
+   * Templates are sorted, disabled ones marked, a deleted one warns.
+   */
+  public function testTemplateSelectIsSortedMarkedAndWarns(): void {
+    ViewTemplate::create(['id' => 'vt_b', 'label' => 'banana'])->save();
+    ViewTemplate::create(['id' => 'vt_a', 'label' => 'Cherry'])->save();
+    ViewTemplate::create(['id' => 'vt_c', 'label' => 'Apple', 'status' => FALSE])->save();
+
+    $form = [];
+    $this->style->buildOptionsForm($form, new FormState());
+    $element = $form[ViewTemplateStyle::OPTION_KEY];
+    self::assertSame(['', 'vt_c', 'vt_b', 'vt_a'], \array_keys($element['#options']));
+    self::assertSame('Apple (disabled)', (string) $element['#options']['vt_c']);
+    self::assertSame('The Canvas layout this display renders through.', (string) $element['#description']);
+
+    // A stored id with no template stays selectable and says what happened.
+    $this->style->options[ViewTemplateStyle::OPTION_KEY] = 'vt_gone';
+    $form = [];
+    $this->style->buildOptionsForm($form, new FormState());
+    $element = $form[ViewTemplateStyle::OPTION_KEY];
+    self::assertSame('- Missing: vt_gone -', (string) $element['#options']['vt_gone']);
+    self::assertSame('vt_gone', $element['#default_value']);
+    self::assertStringContainsString('no longer exists', (string) $element['#description']);
+    self::assertTrue($form['template_links']['edit']['#attributes']['hidden']);
+  }
+
 }

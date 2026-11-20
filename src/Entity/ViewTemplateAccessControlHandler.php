@@ -13,6 +13,7 @@ use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Session\AccountInterface;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -67,11 +68,17 @@ final class ViewTemplateAccessControlHandler extends CanvasConfigEntityAccessCon
     if ($displays === []) {
       return $result instanceof AccessResult ? $result->cachePerPermissions()->addCacheTags($views_list_tags) : $result;
     }
-    $labels = \array_column($displays, 'label');
-    return AccessResult::forbidden(\sprintf(
-      'This view template is used by %s. Choose another template in their Format settings first.',
-      \implode(', ', $labels),
+    $visible = $this->usage->visibleTo($displays, $account);
+    $labels = \array_column($visible, 'label');
+    $hidden = \count($displays) - \count($visible);
+    if ($hidden > 0) {
+      $labels[] = (string) new TranslatableMarkup('@count more you cannot access', ['@count' => $hidden]);
+    }
+    return AccessResult::forbidden((string) new TranslatableMarkup(
+      'This view template is used by @displays. Choose another template in their Format settings first.',
+      ['@displays' => \implode(', ', $labels)],
     ))
+      ->addCacheContexts(['user.permissions'])
       ->cachePerPermissions()
       ->addCacheableDependency($entity)
       ->addCacheTags($views_list_tags);

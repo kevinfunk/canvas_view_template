@@ -40,6 +40,8 @@ final class ViewTemplatePanelBackendTest extends ViewTemplateKernelTestBase {
     'canvas_view_template',
     'node',
     'views',
+    // Defines the "administer views" permission and the edit routes.
+    'views_ui',
   ];
 
   /**
@@ -50,7 +52,7 @@ final class ViewTemplatePanelBackendTest extends ViewTemplateKernelTestBase {
     $this->installEntitySchema('node');
     $this->installEntitySchema('path_alias');
     // Not uid 1, which would have every permission.
-    $this->setUpCurrentUser(['uid' => 2], ['administer view templates']);
+    $this->setUpCurrentUser(['uid' => 2], ['administer view templates', 'administer views']);
 
     $tree = [$this->placeholderItem(ViewTemplatePlaceholder::VIEW_ITEM_LOCAL_ID)];
     ViewTemplate::create(['id' => 'used', 'label' => 'Used', 'component_tree' => $tree])->save();
@@ -117,6 +119,62 @@ final class ViewTemplatePanelBackendTest extends ViewTemplateKernelTestBase {
   }
 
   /**
+   * A copy takes the description from the same place as the tree: the draft.
+   */
+  public function testDuplicateTakesDescriptionFromDraft(): void {
+    $template = ViewTemplate::load('used');
+    $template->set('description', 'Published text')->save();
+    $this->saveDraft($template, [$this->placeholderItem(ViewTemplatePlaceholder::VIEW_ROWS_LOCAL_ID)], 'Draft text');
+
+    self::assertSame(201, $this->duplicate($template, 'described_copy')->getStatusCode());
+    self::assertSame('Draft text', ViewTemplate::load('described_copy')->get('description'));
+  }
+
+  /**
+   * Copying needs the right to create templates.
+   */
+  public function testDuplicateNeedsCreateAccess(): void {
+    $this->setCurrentUser($this->createUser(['access content']));
+    $response = $this->duplicate(ViewTemplate::load('used'), 'forbidden_copy');
+    self::assertSame(403, $response->getStatusCode());
+    self::assertNull(ViewTemplate::load('forbidden_copy'));
+  }
+
+  /**
+   * Names and edit links of Views an account cannot reach stay out of usage.
+   */
+  public function testUsageHidesViewsTheAccountCannotAccess(): void {
+    $view = View::load('second_view');
+    $displays = $view->get('display');
+    $displays['page_1']['display_options']['defaults']['access'] = FALSE;
+    $displays['page_1']['display_options']['access'] = ['type' => 'perm', 'options' => ['perm' => 'administer nodes']];
+    $view->set('display', $displays)->save();
+    $usage = $this->container->get(ViewTemplateUsage::class);
+
+    // With "administer views" everything is listed, with its edit link.
+    $admin = $this->createUser(['administer views']);
+    $entries = $usage->visibleTo($usage->displaysUsing('used'), $admin);
+    self::assertSame(['First view: page_1', 'Second view: page_1'], \array_column($entries, 'label'));
+    self::assertNotSame('', $entries[0]['url']);
+
+    // Without it, the restricted View is dropped and no link is given.
+    $editor = $this->createUser([ViewTemplate::ADMIN_PERMISSION]);
+    $entries = $usage->visibleTo($usage->displaysUsing('used'), $editor);
+    self::assertSame(['First view: page_1'], \array_column($entries, 'label'));
+    self::assertSame('', $entries[0]['url']);
+
+    $this->setCurrentUser($editor);
+    $data = \json_decode((string) ViewTemplateUsageController::create($this->container)->all()->getContent(), TRUE);
+    self::assertSame(['First view: page_1'], \array_column($data['templates']['used'], 'label'));
+
+    // The delete lock still holds, and does not name the hidden View.
+    $reason = (string) ViewTemplate::load('used')->access('delete', $editor, TRUE)->getReason();
+    self::assertStringContainsString('First view: page_1', $reason);
+    self::assertStringNotContainsString('Second view', $reason);
+    self::assertStringContainsString('1 more you cannot access', $reason);
+  }
+
+  /**
    * Usage of all templates in one pass matches asking for each one.
    */
   public function testUsageOfAllTemplatesMatchesEach(): void {
@@ -158,9 +216,12 @@ final class ViewTemplatePanelBackendTest extends ViewTemplateKernelTestBase {
   /**
    * Saves an unpublished draft of a template, as the editor does.
    */
-  private function saveDraft(ViewTemplate $template, array $tree): void {
+  private function saveDraft(ViewTemplate $template, array $tree, ?string $description = NULL): void {
     $draft = ViewTemplate::load((string) $template->id());
     $draft->setComponentTree($tree);
+    if ($description !== NULL) {
+      $draft->set('description', $description);
+    }
     $manager = $this->container->get(AutoSaveManager::class);
     $manager->saveEntity($draft);
     self::assertFalse($manager->getAutoSaveEntity($template)->isEmpty());

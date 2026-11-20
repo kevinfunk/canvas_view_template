@@ -35,7 +35,7 @@ final class ViewTemplateUsageController extends ControllerBase {
     $by_template = $this->usage->displaysByTemplate();
     $templates = [];
     foreach (\array_keys($this->entityTypeManager()->getStorage(ViewTemplate::ENTITY_TYPE_ID)->loadMultiple()) as $id) {
-      $templates[$id] = $by_template[$id] ?? [];
+      $templates[$id] = $this->usage->visibleTo($by_template[$id] ?? [], $this->currentUser());
     }
     $response = new JsonResponse(['templates' => $templates]);
     $response->headers->set('Cache-Control', 'no-store, private');
@@ -46,7 +46,7 @@ final class ViewTemplateUsageController extends ControllerBase {
    * Returns the displays using the template.
    */
   public function usage(ViewTemplate $view_template): JsonResponse {
-    $response = new JsonResponse(['displays' => $this->usage->displaysUsing((string) $view_template->id())]);
+    $response = new JsonResponse(['displays' => $this->usage->visibleTo($this->usage->displaysUsing((string) $view_template->id()), $this->currentUser())]);
     $response->headers->set('Cache-Control', 'no-store, private');
     return $response;
   }

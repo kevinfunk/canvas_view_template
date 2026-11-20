@@ -65,17 +65,19 @@ node web/modules/custom/canvas_view_template/tests/js/style-options.test.js
   `createPageVariant()`, `installNodeSupport()`) before writing a new builder.
 - `render()` takes the template and one `ViewRenderData`. The one collector,
   `ViewRenderDataCollector`, builds it for the front end and for both previews.
-- Keep strict config schema on in tests. The one exception is
-  `ViewTemplateWithoutDevModeTest`, which turns it off on purpose and says why.
-  phpcs flags any other test that does.
+- Keep strict config schema on in tests. The exceptions are
+  `ViewTemplateWithoutDevModeTest` and `ViewTemplateComponentUpdaterTest`,
+  which turn it off on purpose and say why. phpcs flags any other test that
+  does.
 
 ## Changing a component
 
 See "Changing a component" in the README. In short: the hash changes whenever
 slot definitions or the settings schema change; put the new hash in
 `config/install`; sites that already have the module need an update hook that
-creates the new version and moves placements. The drift and contract tests
-fail when any of these is out of step.
+creates the new version and moves placements, using `ComponentUpdater` (README
+has an example). The drift and contract tests fail when any of these is out of
+step.
 
 ## After a Canvas or Drupal update
 

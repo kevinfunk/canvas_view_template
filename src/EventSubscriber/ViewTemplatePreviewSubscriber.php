@@ -9,7 +9,6 @@ use Drupal\canvas_view_template\Entity\ViewTemplate;
 use Drupal\canvas_view_template\Form\ViewTemplatePreviewForm;
 use Drupal\canvas_view_template\Plugin\Validation\Constraint\ViewTemplateNoNestedRepeaterConstraintValidator;
 use Drupal\canvas_view_template\Plugin\Validation\Constraint\ViewTemplateRepeaterContentsConstraintValidator;
-use Drupal\canvas_view_template\Preview\ViewTemplateLivePreview;
 use Drupal\canvas_view_template\Preview\ViewTemplatePreviewSelection;
 use Drupal\canvas_view_template\ViewTemplateDrafts;
 use Drupal\Core\Cache\CacheableMetadata;
@@ -36,7 +35,6 @@ final class ViewTemplatePreviewSubscriber implements EventSubscriberInterface {
 
   public function __construct(
     private readonly ViewTemplatePreviewSelection $selection,
-    private readonly ViewTemplateLivePreview $livePreview,
     private readonly UrlGeneratorInterface $urlGenerator,
     private readonly ViewTemplateDrafts $drafts,
   ) {}
@@ -73,39 +71,40 @@ final class ViewTemplatePreviewSubscriber implements EventSubscriberInterface {
     }
     $render = $result->previewRenderArray;
 
-    $live = $this->livePreview->build($entity);
-    if ($live !== NULL) {
-      $wrapped = [
+    // The live content is fetched by the full-width preview when it opens, so
+    // an edit does not run the View for frames that never show it.
+    $chosen = $this->selection->get($id) !== NULL;
+    $hint = [
+      '#type' => 'html_tag',
+      '#tag' => 'p',
+      '#attributes' => ['class' => ['cvt-preview-hint'], 'hidden' => TRUE],
+      '#value' => $chosen
+        ? $this->t('Showing placeholders. The view chosen under Page data, Preview with view cannot be shown: you may not have access to it, it may need a contextual filter, or it is disabled.')
+        : $this->t('Showing placeholders. To see real content, choose a view under Page data, Preview with view.'),
+    ];
+    if ($chosen) {
+      $render = [
         'edit' => [
           '#type' => 'container',
           '#attributes' => ['class' => ['cvt-edit-preview']],
           'content' => $render,
         ],
+        'hint' => $hint,
         'live' => [
           '#type' => 'container',
           '#attributes' => [
             'class' => ['cvt-live-preview'],
             'hidden' => TRUE,
+            'data-cvt-lazy' => '',
             'data-cvt-url' => $this->urlGenerator->generateFromRoute('canvas_view_template.live_preview', ['view_template' => $id]),
           ],
-          'content' => $live,
         ],
         '#attached' => ['library' => ['canvas_view_template/live_preview']],
       ];
-      CacheableMetadata::createFromRenderArray($wrapped)
-        ->merge(CacheableMetadata::createFromRenderArray($live))
-        ->applyTo($wrapped);
-      $render = $wrapped;
     }
     else {
-      // No View to preview with: say so, in the full-width preview only.
       $render = [
-        'hint' => [
-          '#type' => 'html_tag',
-          '#tag' => 'p',
-          '#attributes' => ['class' => ['cvt-preview-hint'], 'hidden' => TRUE],
-          '#value' => $this->t('Showing placeholders. To see real content, choose a view under Page data, Preview with view.'),
-        ],
+        'hint' => $hint,
         'content' => $render,
         '#attached' => ['library' => ['canvas_view_template/live_preview']],
       ];

@@ -9,6 +9,7 @@ use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateFeedIc
 use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplatePlaceholder;
 use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateSummary;
 use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateTitle;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Symfony\Component\Validator\Constraint;
 use Symfony\Component\Validator\ConstraintValidator;
 
@@ -25,7 +26,7 @@ final class ViewTemplateRepeaterContentsConstraintValidator extends ConstraintVa
 
     foreach (self::misplacedComponents(ViewTemplateTreeItems::from($value)) as $uuid => $component_id) {
       $this->context->buildViolation($constraint->message)
-        ->setParameter('@component', self::labels()[$component_id])
+        ->setParameter('@component', (string) self::labels()[$component_id])
         ->setInvalidValue((string) $uuid)
         ->addViolation();
     }
@@ -34,23 +35,23 @@ final class ViewTemplateRepeaterContentsConstraintValidator extends ConstraintVa
   /**
    * The components that show the whole view, with their names.
    *
-   * @return array<string, string>
+   * @return array<string, \Drupal\Core\StringTranslation\TranslatableMarkup>
    *   Labels, keyed by full Component config entity id.
    */
   public static function labels(): array {
     $placeholder = ViewTemplatePlaceholder::SOURCE_PLUGIN_ID . '.';
     return [
-      $placeholder . ViewTemplatePlaceholder::VIEW_ROWS_LOCAL_ID => 'View rows',
-      $placeholder . ViewTemplatePlaceholder::VIEW_EXPOSED_FILTERS_LOCAL_ID => 'View exposed filters',
-      $placeholder . ViewTemplatePlaceholder::VIEW_PAGER_LOCAL_ID => 'View pager',
-      $placeholder . ViewTemplatePlaceholder::VIEW_HEADER_LOCAL_ID => 'View header',
-      $placeholder . ViewTemplatePlaceholder::VIEW_FOOTER_LOCAL_ID => 'View footer',
-      $placeholder . ViewTemplatePlaceholder::VIEW_MORE_LOCAL_ID => 'View more link',
-      $placeholder . ViewTemplatePlaceholder::VIEW_ATTACHMENTS_LOCAL_ID => 'View attachments',
-      ViewTemplateEmpty::SOURCE_PLUGIN_ID . '.' . ViewTemplateEmpty::LOCAL_ID => 'View no results',
-      ViewTemplateTitle::SOURCE_PLUGIN_ID . '.' . ViewTemplateTitle::LOCAL_ID => 'View title',
-      ViewTemplateSummary::SOURCE_PLUGIN_ID . '.' . ViewTemplateSummary::LOCAL_ID => 'View result summary',
-      ViewTemplateFeedIcons::SOURCE_PLUGIN_ID . '.' . ViewTemplateFeedIcons::LOCAL_ID => 'View feed icons',
+      $placeholder . ViewTemplatePlaceholder::VIEW_ROWS_LOCAL_ID => new TranslatableMarkup('View rows'),
+      $placeholder . ViewTemplatePlaceholder::VIEW_EXPOSED_FILTERS_LOCAL_ID => new TranslatableMarkup('View exposed filters'),
+      $placeholder . ViewTemplatePlaceholder::VIEW_PAGER_LOCAL_ID => new TranslatableMarkup('View pager'),
+      $placeholder . ViewTemplatePlaceholder::VIEW_HEADER_LOCAL_ID => new TranslatableMarkup('View header'),
+      $placeholder . ViewTemplatePlaceholder::VIEW_FOOTER_LOCAL_ID => new TranslatableMarkup('View footer'),
+      $placeholder . ViewTemplatePlaceholder::VIEW_MORE_LOCAL_ID => new TranslatableMarkup('View more link'),
+      $placeholder . ViewTemplatePlaceholder::VIEW_ATTACHMENTS_LOCAL_ID => new TranslatableMarkup('View attachments'),
+      ViewTemplateEmpty::SOURCE_PLUGIN_ID . '.' . ViewTemplateEmpty::LOCAL_ID => new TranslatableMarkup('View no results'),
+      ViewTemplateTitle::SOURCE_PLUGIN_ID . '.' . ViewTemplateTitle::LOCAL_ID => new TranslatableMarkup('View title'),
+      ViewTemplateSummary::SOURCE_PLUGIN_ID . '.' . ViewTemplateSummary::LOCAL_ID => new TranslatableMarkup('View result summary'),
+      ViewTemplateFeedIcons::SOURCE_PLUGIN_ID . '.' . ViewTemplateFeedIcons::LOCAL_ID => new TranslatableMarkup('View feed icons'),
     ];
   }
 

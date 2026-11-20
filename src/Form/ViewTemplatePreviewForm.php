@@ -13,6 +13,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\EventSubscriber\AjaxResponseSubscriber;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Session\AccountInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -38,6 +39,7 @@ final class ViewTemplatePreviewForm extends FormBase {
     protected EntityTypeManagerInterface $entityTypeManager,
     protected ViewTemplatePreviewSelection $selection,
     protected ViewTemplateUsage $usage,
+    protected AccountInterface $currentUser,
   ) {}
 
   /**
@@ -48,6 +50,7 @@ final class ViewTemplatePreviewForm extends FormBase {
       $container->get(EntityTypeManagerInterface::class),
       $container->get(ViewTemplatePreviewSelection::class),
       $container->get(ViewTemplateUsage::class),
+      $container->get('current_user'),
     );
   }
 
@@ -113,7 +116,8 @@ final class ViewTemplatePreviewForm extends FormBase {
       $displays = [];
       foreach ($view->get('display') as $display_id => $display) {
         // Only displays that render a listing.
-        if (\in_array($display['display_plugin'] ?? '', ViewTemplatePreviewSelection::PREVIEWABLE_DISPLAY_PLUGINS, TRUE)) {
+        if (\in_array($display['display_plugin'] ?? '', ViewTemplatePreviewSelection::PREVIEWABLE_DISPLAY_PLUGINS, TRUE)
+          && $this->usage->canSee((string) $view->id(), (string) $display_id, $this->currentUser)) {
           $displays[$display_id] = $display;
         }
       }

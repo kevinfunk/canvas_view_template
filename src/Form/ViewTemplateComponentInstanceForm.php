@@ -19,6 +19,7 @@ use Drupal\Core\Extension\ThemeHandlerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 
 /**
  * Edits a component instance placed in a view template.
@@ -81,12 +82,16 @@ final class ViewTemplateComponentInstanceForm extends FormBase {
 
     $request = $this->getRequest();
     $tree = $request->request->getString('form_canvas_tree');
-    [$component_id, $version] = \explode('@', \json_decode($tree, TRUE)['type']);
-    if (empty($version)) {
-      throw new \UnexpectedValueException('No component version specified.');
+    $decoded_tree = \json_decode($tree, TRUE);
+    $type = \is_array($decoded_tree) && \is_string($decoded_tree['type'] ?? NULL) ? $decoded_tree['type'] : '';
+    [$component_id, $version] = \array_pad(\explode('@', $type, 2), 2, '');
+    if ($version === '') {
+      throw new BadRequestHttpException('No component version specified.');
     }
     $component = Component::load($component_id);
-    \assert($component instanceof ComponentInterface);
+    if (!$component instanceof ComponentInterface) {
+      throw new BadRequestHttpException('Unknown component.');
+    }
     // Older instances must keep their own version's settings.
     $component->loadVersion($version);
     if ($request->query->has('form_canvas_selected')) {

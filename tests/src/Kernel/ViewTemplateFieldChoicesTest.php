@@ -80,4 +80,23 @@ final class ViewTemplateFieldChoicesTest extends ViewTemplateKernelTestBase {
     ])->save();
   }
 
+  /**
+   * Fields of a View the user cannot access are not offered.
+   */
+  public function testFieldsOfRestrictedViewsAreHidden(): void {
+    $this->createView('cvt_open', TRUE, ['cvt_open_field' => ['id' => 'cvt_open_field', 'label' => 'Open']]);
+    $this->createView('cvt_closed', TRUE, ['cvt_closed_field' => ['id' => 'cvt_closed_field', 'label' => 'Closed']]);
+    $closed = View::load('cvt_closed');
+    $displays = $closed->get('display');
+    $displays['default']['display_options']['access'] = ['type' => 'perm', 'options' => ['perm' => 'administer nodes']];
+    $closed->set('display', $displays)->save();
+    ViewTemplate::create(['id' => 'unused', 'label' => 'Unused'])->save();
+
+    $component = Component::load(ViewTemplateField::SOURCE_PLUGIN_ID . '.' . ViewTemplateField::LOCAL_ID);
+    $form = $component->getComponentSource()->buildComponentInstanceForm([], new FormState(), $component, 'u', [], ViewTemplate::load('unused'));
+    $options = $form[ViewTemplateField::INPUT_FIELD]['#options'];
+    self::assertArrayHasKey('cvt_open_field', $options);
+    self::assertArrayNotHasKey('cvt_closed_field', $options);
+  }
+
 }

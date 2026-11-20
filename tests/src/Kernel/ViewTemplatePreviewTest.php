@@ -73,7 +73,7 @@ final class ViewTemplatePreviewTest extends ViewTemplateKernelTestBase {
     parent::setUp();
     $this->installNodeSupport();
     // The private temp store is per user.
-    $this->setUpCurrentUser(['uid' => 2], ['access content', 'bypass node access']);
+    $this->setUpCurrentUser(['uid' => 2], ['access content', 'bypass node access', 'administer view templates']);
 
     // A View whose label starts lowercase, to check the order of the select.
     View::create([
@@ -319,11 +319,13 @@ final class ViewTemplatePreviewTest extends ViewTemplateKernelTestBase {
     $response = $controller->render($template, $request);
     $data = \json_decode((string) $response->getContent(), TRUE);
     self::assertSame('', $data['html'], 'No View chosen: nothing to show.');
+    self::assertTrue($data['unavailable']);
 
     $this->container->get(ViewTemplatePreviewSelection::class)->set('preview_test', 'preview_test_view/page_1');
     $response = $controller->render($template, $request);
     $data = \json_decode((string) $response->getContent(), TRUE);
     self::assertStringContainsString('First article', $data['html']);
+    self::assertFalse($data['unavailable']);
     // The files and settings the content needs come with it. The test theme
     // has none, so the lists may be empty.
     // @see \Drupal\Tests\canvas_view_template\Kernel\ViewTemplateLivePreviewAssetsTest
@@ -402,10 +404,13 @@ final class ViewTemplatePreviewTest extends ViewTemplateKernelTestBase {
     $preview = $result->previewRenderArray;
     $html = (string) $this->renderer->renderInIsolation($preview);
     self::assertStringContainsString('EDITOR_PLACEHOLDERS', $html);
-    self::assertStringContainsString('First article', $html);
     self::assertStringContainsString('cvt-edit-preview', $html);
     self::assertStringContainsString('cvt-live-preview', $html);
+    self::assertStringContainsString('data-cvt-lazy', $html);
     self::assertStringContainsString('/canvas-view-template/live-preview/preview_test', $html);
+    // The View is not run for the editor's frames: the full-width preview
+    // fetches the content when it opens.
+    self::assertStringNotContainsString('First article', $html);
   }
 
   /**
@@ -574,6 +579,49 @@ final class ViewTemplatePreviewTest extends ViewTemplateKernelTestBase {
     $this->container->get('kernel')->rebuildContainer();
     $used = ViewTemplate::load('preview_test');
     self::assertTrue($used->access('delete', $admin));
+  }
+
+  /**
+   * A View the user cannot access is not offered, and the hint says why.
+   */
+  public function testRestrictedViewIsNotOfferedAndPreviewExplainsWhy(): void {
+    View::create([
+      'id' => 'restricted_view',
+      'label' => 'Restricted view',
+      'base_table' => 'node_field_data',
+      'display' => [
+        'default' => ['display_plugin' => 'default', 'id' => 'default', 'display_title' => 'Default'],
+        'page_1' => [
+          'display_plugin' => 'page',
+          'id' => 'page_1',
+          'display_title' => 'Page',
+          'display_options' => [
+            'path' => 'restricted-test',
+            'defaults' => ['access' => FALSE],
+            'access' => ['type' => 'perm', 'options' => ['perm' => 'administer nodes']],
+          ],
+        ],
+      ],
+    ])->save();
+    $template = ViewTemplate::load('preview_test');
+
+    $form = $this->container->get('form_builder')->getForm(ViewTemplatePreviewForm::class, $template);
+    self::assertArrayNotHasKey('restricted_view/page_1', $form[ViewTemplatePreviewForm::FIELD]['#options']);
+
+    $this->container->get(ViewTemplatePreviewSelection::class)->set('preview_test', 'restricted_view/page_1');
+    $request = new Request();
+    $request->attributes->set('entity', $template);
+    $event = new ViewEvent($this->container->get('http_kernel'), $request, HttpKernelInterface::MAIN_REQUEST, new PreviewEnvelope(['#markup' => 'EDITOR_PLACEHOLDERS'], ['entity_form_fields' => ['id' => 'preview_test']]));
+    $this->container->get('canvas_view_template.preview_subscriber')->onView($event);
+    $preview = $event->getControllerResult()->previewRenderArray;
+    $html = (string) $this->renderer->renderInIsolation($preview);
+    self::assertStringContainsString('cannot be shown', $html);
+
+    // The route the preview fetches says there is nothing to show.
+    $response = ViewTemplateLivePreviewController::create($this->container)->render($template, Request::create('/canvas-view-template/live-preview/preview_test'));
+    $data = \json_decode((string) $response->getContent(), TRUE);
+    self::assertTrue($data['unavailable']);
+    self::assertSame('', \trim($data['html']));
   }
 
 }

@@ -11,8 +11,10 @@ use Drupal\canvas_view_template\Entity\ViewTemplate;
 use Drupal\canvas_view_template\Form\ViewTemplateComponentInstanceForm;
 use Drupal\Core\Form\FormState;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 
 /**
  * Tests the forked component instance form used for view templates.
@@ -86,6 +88,45 @@ final class ViewTemplateComponentInstanceFormTest extends ViewTemplateKernelTest
     $form = $this->container->get('form_builder')->buildForm(ViewTemplateComponentInstanceForm::class, $form_state);
 
     self::assertArrayHasKey($uuid, $form['canvas_component_props']);
+  }
+
+  /**
+   * A damaged component tree is a bad request, not a server error.
+   */
+  #[DataProvider('badTreeProvider')]
+  public function testBadComponentTreeIsBadRequest(string $tree): void {
+    $this->container->get('theme_installer')->install(['canvas_stark']);
+    $view_template = ViewTemplate::create(['id' => 'vt_bad', 'label' => 'Bad']);
+    $view_template->save();
+
+    $request = Request::create('/canvas/api/v0/form/component-instance/canvas_view_template/vt_bad', 'POST', [
+      'form_canvas_tree' => $tree,
+      'form_canvas_selected' => '11111111-1111-4111-8111-111111111111',
+      'form_canvas_props' => '{}',
+    ]);
+    $request->setSession(new Session(new MockArraySessionStorage()));
+    $this->container->get('request_stack')->push($request);
+
+    $form_state = new FormState();
+    $form_state->addBuildInfo('args', [$view_template]);
+    $this->expectException(BadRequestHttpException::class);
+    $this->container->get('form_builder')->buildForm(ViewTemplateComponentInstanceForm::class, $form_state);
+  }
+
+  /**
+   * Trees the form must reject.
+   *
+   * @return array<string, array{string}>
+   *   Values for `form_canvas_tree`.
+   */
+  public static function badTreeProvider(): array {
+    return [
+      'not JSON' => ['not json'],
+      'no type' => ['{}'],
+      'type is not a string' => ['{"type": 5}'],
+      'no version' => ['{"type": "canvas_view_template_repeater.view_repeater"}'],
+      'unknown component' => ['{"type": "nothing.here@abc"}'],
+    ];
   }
 
 }

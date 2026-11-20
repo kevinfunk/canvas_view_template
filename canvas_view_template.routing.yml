@@ -78,3 +78,14 @@ canvas_view_template.duplicate:
         type: entity:canvas_view_template
   methods:
     - POST
+
+# The panel's text in the current interface language.
+# @see extension/app.js
+canvas_view_template.panel_strings:
+  path: '/canvas-view-template/panel-strings'
+  defaults:
+    _controller: 'Drupal\canvas_view_template\Controller\ViewTemplatePanelStringsController::strings'
+  requirements:
+    _permission: 'administer view templates'
+  methods:
+    - GET
