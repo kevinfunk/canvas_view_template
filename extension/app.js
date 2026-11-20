@@ -27,7 +27,10 @@
     list: document.getElementById('list'),
     loading: document.getElementById('loading'),
     empty: document.getElementById('empty'),
+    noMatch: document.getElementById('no-match'),
+    search: document.getElementById('search'),
     error: document.getElementById('error'),
+    toolbar: document.getElementById('toolbar'),
     newButton: document.getElementById('new-button'),
     errorBox: document.getElementById('error-box'),
     retry: document.getElementById('retry-button'),
@@ -115,6 +118,9 @@
 
   const slug = (label) =>
     label
+      // Drops accents, so "Café" becomes "cafe" rather than "caf".
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '_')
       .replace(/^_+|_+$/g, '')
@@ -453,6 +459,9 @@
         box.focus();
       }
       confirm.disabled = true;
+      const confirmText = confirm.textContent;
+      confirm.textContent = t('Working…');
+      box.setAttribute('aria-busy', 'true');
       const values = Object.fromEntries(Object.entries(inputs).map(([key, input]) => [key, input.value]));
       try {
         await options.onConfirm(values, dialog);
@@ -461,6 +470,8 @@
       } catch (failure) {
         busy = false;
         confirm.disabled = false;
+        confirm.textContent = confirmText;
+        box.removeAttribute('aria-busy');
         dialog.setError(failure.message, failure.field);
       }
     };
@@ -599,29 +610,71 @@
     return item;
   };
 
-  const render = (templates) => {
-    els.list.replaceChildren(...templates.map(renderNode));
-    els.loading.hidden = true;
-    els.empty.hidden = templates.length > 0;
-  };
+  let allTemplates = [];
 
-  const load = async ({ announceCount = true } = {}) => {
-    showError('');
+  const matches = (template, query) =>
+    [template.label, template.id, template.description].some((value) => (value ?? '').toLowerCase().includes(query));
+
+  const render = () => {
+    const query = els.search.value.trim().toLowerCase();
+    const shown = query ? allTemplates.filter((template) => matches(template, query)) : allTemplates;
+    els.list.replaceChildren(...shown.map(renderNode));
+    els.loading.hidden = true;
+    els.empty.hidden = allTemplates.length > 0;
+    els.noMatch.hidden = shown.length > 0 || allTemplates.length === 0;
+    if (query && !els.noMatch.hidden) {
+      announce(els.noMatch.textContent);
+    }
+  };
+  els.search.addEventListener('input', render);
+
+  let loading = false;
+  let lastSignature = '';
+  const load = async ({ announceCount = true, background = false } = {}) => {
+    if (!background) {
+      showError('');
+    }
+    loading = true;
     try {
       const templates = Object.values(await getJson(api));
+      const collator = new Intl.Collator(langcode, { sensitivity: 'base', numeric: true });
+      templates.sort((a, b) => collator.compare(a.label || a.id, b.label || b.id));
       templateIds = new Set(templates.map((template) => template.id));
       await loadUsage();
-      render(templates);
-      els.newButton.hidden = false;
+      // Unchanged data keeps the rows, and with them focus.
+      const signature = JSON.stringify([templates, usage]);
+      const unchanged = !announceCount && signature === lastSignature;
+      lastSignature = signature;
+      allTemplates = templates;
+      if (unchanged) {
+        return;
+      }
+      render();
+      els.toolbar.hidden = false;
       if (announceCount) {
         announce(templates.length === 1 ? t('1 view template.') : t('@count view templates.', { count: templates.length }));
       }
     } catch (error) {
+      if (background) {
+        // Keep the list that is shown; the next refresh tries again.
+        return;
+      }
       els.loading.hidden = true;
-      els.newButton.hidden = true;
+      els.toolbar.hidden = true;
       showError(t('Could not load view templates: @error', { error: error.message }));
+    } finally {
+      loading = false;
     }
   };
+
+  // Another tab may have changed the list: refresh quietly when this one is
+  // used again, unless a menu or dialog is open or a load is running.
+  const refreshIfIdle = () => {
+    if (!loading && !openMenu && !openDialogs.size && !els.toolbar.hidden && !document.hidden) {
+      load({ announceCount: false, background: true });
+    }
+  };
+  document.addEventListener('visibilitychange', refreshIfIdle);
   els.retry.addEventListener('click', () => {
     els.loading.hidden = false;
     load();
@@ -800,6 +853,7 @@
     for (const node of document.querySelectorAll('[data-t-aria-label]')) {
       node.setAttribute('aria-label', t(node.dataset.tAriaLabel));
     }
+    els.search.placeholder = t('Search…');
     load();
   };
   start();

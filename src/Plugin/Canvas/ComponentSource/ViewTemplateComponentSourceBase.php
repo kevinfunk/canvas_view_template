@@ -173,6 +173,7 @@ abstract class ViewTemplateComponentSourceBase extends ComponentSourceBase {
     if (!empty($slot_definitions)) {
       $hydrated['slots'] = \array_map(fn(array $slot): mixed => $slot['examples'][0] ?? '', $slot_definitions);
     }
+    // The interface's array shape is narrower than the `slots` key we add.
     // @phpstan-ignore return.type
     return $hydrated;
   }
@@ -188,6 +189,7 @@ abstract class ViewTemplateComponentSourceBase extends ComponentSourceBase {
    * {@inheritdoc}
    */
   public function getClientSideInfo(Component $component): array {
+    // The interface's array shape does not describe the client-side info.
     // @phpstan-ignore return.type
     return [
       'build' => $this->renderComponent([], $component->getSlotDefinitions(), $component->uuid(), TRUE),

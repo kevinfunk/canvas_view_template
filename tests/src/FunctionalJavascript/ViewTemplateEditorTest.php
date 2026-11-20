@@ -231,6 +231,29 @@ final class ViewTemplateEditorTest extends WebDriverTestBase {
   }
 
   /**
+   * A long list is sorted by label and can be filtered.
+   */
+  public function testPanelFiltersLongList(): void {
+    foreach (['Zulu', 'Yankee', 'Xray', 'Whiskey', 'Victor', 'Uniform', 'Tango'] as $label) {
+      ViewTemplate::create(['id' => \strtolower($label), 'label' => $label])->save();
+    }
+    $this->openPanel();
+    $search = $this->assertSession()->waitForElementVisible('css', '#search', 10000);
+    self::assertNotNull($search, 'The search box is missing.');
+    $titles = \array_keys($this->panelRows());
+    $sorted = $titles;
+    \natcasesort($sorted);
+    self::assertSame(\array_values($sorted), $titles, 'The list is not sorted by label.');
+
+    $search->setValue('whisk');
+    self::assertSame(['Whiskey'], \array_keys($this->panelRows()));
+    $search->setValue('nothing like this');
+    self::assertSame([], $this->panelRows());
+    self::assertTrue($this->assertSession()->elementExists('css', '#no-match')->isVisible());
+    $this->getSession()->switchToIFrame();
+  }
+
+  /**
    * A template can be duplicated from its row menu.
    */
   public function testPanelDuplicatesTemplate(): void {

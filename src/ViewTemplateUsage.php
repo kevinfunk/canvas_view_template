@@ -48,6 +48,7 @@ class ViewTemplateUsage {
     }
     // ViewExecutable::access() treats NULL as "no displays".
     $displays = $display_id !== NULL ? [$display_id] : \array_keys($view->get('display'));
+    // getExecutable() is on View, not the entity interface phpstan sees.
     // @phpstan-ignore-next-line method.notFound
     return $view->getExecutable()->access($displays, $account);
   }
