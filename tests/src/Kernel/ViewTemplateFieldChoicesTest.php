@@ -7,6 +7,8 @@ namespace Drupal\Tests\canvas_view_template\Kernel;
 use Drupal\canvas\Entity\Component;
 use Drupal\canvas_view_template\Entity\ViewTemplate;
 use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateField;
+use Drupal\canvas_view_template\Plugin\views\style\ViewTemplateStyle;
+use Drupal\canvas_view_template\ViewFieldChoices;
 use Drupal\Core\Form\FormState;
 use Drupal\views\Entity\View;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -97,6 +99,73 @@ final class ViewTemplateFieldChoicesTest extends ViewTemplateKernelTestBase {
     $options = $form[ViewTemplateField::INPUT_FIELD]['#options'];
     self::assertArrayHasKey('cvt_open_field', $options);
     self::assertArrayNotHasKey('cvt_closed_field', $options);
+  }
+
+  /**
+   * With no preview chosen, only the Views using the template are offered.
+   *
+   * The preview falls back to the first display using the template, so the
+   * source is the previewed display; `using` is for displays that cannot be
+   * previewed, such as a feed.
+   */
+  public function testOnlyViewsUsingTheTemplateAreOffered(): void {
+    $this->createView('cvt_other', TRUE, ['cvt_other_field' => ['id' => 'cvt_other_field', 'label' => 'Other']]);
+    $this->createView('cvt_mine', TRUE, ['cvt_mine_field' => ['id' => 'cvt_mine_field', 'label' => 'Mine']]);
+    $mine = View::load('cvt_mine');
+    $displays = $mine->get('display');
+    $displays['page_1'] = [
+      'display_plugin' => 'page',
+      'id' => 'page_1',
+      'display_title' => 'Page',
+      'position' => 1,
+      'display_options' => [
+        'path' => 'cvt-mine',
+        'defaults' => ['style' => FALSE, 'row' => FALSE, 'fields' => FALSE],
+        'style' => ['type' => ViewTemplateStyle::PLUGIN_ID, 'options' => [ViewTemplateStyle::OPTION_KEY => 'uses_it']],
+        'row' => ['type' => 'fields'],
+        'fields' => $displays['default']['display_options']['fields'],
+      ],
+    ];
+    $mine->set('display', $displays)->save();
+    ViewTemplate::create(['id' => 'uses_it', 'label' => 'Used'])->save();
+    ViewTemplate::create(['id' => 'unused', 'label' => 'Unused'])->save();
+
+    $choices = $this->container->get(ViewFieldChoices::class);
+    $previewed = $choices->forEntity(ViewTemplate::load('uses_it'));
+    self::assertSame(ViewFieldChoices::SOURCE_PREVIEWED, $previewed['source']);
+    // Labels come from the real handlers here; only the field names matter.
+    self::assertSame(['cvt_mine_field'], \array_keys($previewed['options']));
+
+    // A template used only by a display that cannot be previewed.
+    $this->createView('cvt_feed', TRUE, ['cvt_feed_field' => ['id' => 'cvt_feed_field', 'label' => 'Feed']]);
+    $feed = View::load('cvt_feed');
+    $displays = $feed->get('display');
+    $displays['feed_1'] = [
+      'display_plugin' => 'feed',
+      'id' => 'feed_1',
+      'display_title' => 'Feed',
+      'position' => 1,
+      'display_options' => [
+        'path' => 'cvt-feed.xml',
+        'defaults' => ['style' => FALSE, 'row' => FALSE, 'fields' => FALSE],
+        'style' => ['type' => ViewTemplateStyle::PLUGIN_ID, 'options' => [ViewTemplateStyle::OPTION_KEY => 'feed_only']],
+        'row' => ['type' => 'fields'],
+        'fields' => $displays['default']['display_options']['fields'],
+      ],
+    ];
+    $feed->set('display', $displays)->save();
+    ViewTemplate::create(['id' => 'feed_only', 'label' => 'Feed only'])->save();
+    $using = $choices->forEntity(ViewTemplate::load('feed_only'));
+    self::assertSame(ViewFieldChoices::SOURCE_USING, $using['source']);
+    self::assertSame(['cvt_feed_field'], \array_keys($using['options']));
+
+    // A template nothing uses, and no entity at all, offer every View's fields.
+    foreach ([ViewTemplate::load('unused'), NULL] as $entity) {
+      $all = $choices->forEntity($entity);
+      self::assertSame(ViewFieldChoices::SOURCE_ALL, $all['source']);
+      self::assertArrayHasKey('cvt_other_field', $all['options']);
+      self::assertArrayHasKey('cvt_mine_field', $all['options']);
+    }
   }
 
 }

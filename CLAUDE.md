@@ -88,8 +88,8 @@ See "Changing a component" in the README. In short: the hash changes whenever
 slot definitions or the settings schema change; put the new hash in
 `config/install`; sites that already have the module need an update hook that
 creates the new version and moves placements, using `ComponentUpdater` (README
-has an example). The drift and contract tests fail when any of these is out of
-step.
+has an example). Update hooks are numbered from 10001. The drift and contract
+tests fail when any of these is out of step.
 
 ## After a Canvas or Drupal update
 

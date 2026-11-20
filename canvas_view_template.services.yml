@@ -20,6 +20,12 @@ services:
     arguments:
       - '@tempstore.private'
       - '@Drupal\canvas_view_template\ViewTemplateUsage'
+  Drupal\canvas_view_template\ViewFieldChoices:
+    arguments:
+      - '@Drupal\canvas_view_template\Preview\ViewTemplatePreviewSelection'
+      - '@Drupal\canvas_view_template\ViewTemplateUsage'
+      - '@config.factory'
+      - '@current_user'
   Drupal\canvas_view_template\Preview\ViewPreviewBuilder: {}
   Drupal\canvas_view_template\Preview\ViewTemplateLivePreview:
     arguments:

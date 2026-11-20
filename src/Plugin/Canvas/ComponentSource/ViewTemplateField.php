@@ -6,9 +6,7 @@ namespace Drupal\canvas_view_template\Plugin\Canvas\ComponentSource;
 
 use Drupal\canvas\Attribute\ComponentSource;
 use Drupal\canvas\Entity\Component;
-use Drupal\canvas_view_template\Entity\ViewTemplate;
-use Drupal\canvas_view_template\Preview\ViewTemplatePreviewSelection;
-use Drupal\canvas_view_template\ViewTemplateUsage;
+use Drupal\canvas_view_template\ViewFieldChoices;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\FieldableEntityInterface;
 use Drupal\Core\Form\FormStateInterface;
@@ -16,7 +14,6 @@ use Drupal\Core\Render\Markup;
 use Drupal\Core\Security\TrustedCallbackInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Template\Attribute;
-use Drupal\views\Views;
 use Symfony\Component\Validator\ConstraintViolationList;
 use Symfony\Component\Validator\ConstraintViolationListInterface;
 
@@ -280,59 +277,6 @@ final class ViewTemplateField extends ViewTemplateComponentSourceBase implements
   }
 
   /**
-   * The fields to choose from.
-   *
-   * Order: previewed display, displays using this template, all Views.
-   *
-   * @return array{options: array<string, string>, source: string}
-   *   Admin labels by field name, and `previewed`, `using` or `all`.
-   */
-  private function fieldChoices(?EntityInterface $entity): array {
-    $displays = [];
-    $source = 'all';
-    if ($entity instanceof ViewTemplate) {
-      $template_id = (string) $entity->id();
-      $choice = \Drupal::service(ViewTemplatePreviewSelection::class)->get($template_id);
-      if ($choice !== NULL) {
-        $displays = [$choice];
-        $source = 'previewed';
-      }
-      else {
-        foreach (\Drupal::service(ViewTemplateUsage::class)->displaysUsing($template_id) as $display) {
-          $displays[] = ['view' => $display['view'], 'display' => $display['display']];
-        }
-        $source = $displays !== [] ? 'using' : 'all';
-      }
-    }
-    $options = [];
-    if ($source === 'all') {
-      // Raw config: building every View's handlers would be slow on big sites.
-      $config_factory = \Drupal::configFactory();
-      $usage = \Drupal::service(ViewTemplateUsage::class);
-      $account = \Drupal::currentUser();
-      foreach ($config_factory->loadMultiple($config_factory->listAll('views.view.')) as $config) {
-        if (!$config->get('status') || !$usage->canSee((string) $config->get('id'), NULL, $account)) {
-          continue;
-        }
-        foreach ($config->get('display.default.display_options.fields') ?? [] as $id => $field) {
-          $options[(string) $id] ??= (string) (($field['admin_label'] ?? '') ?: ($field['label'] ?? '') ?: $id);
-        }
-      }
-    }
-    foreach ($displays as $choice) {
-      $view = Views::getView($choice['view']);
-      if ($view === NULL || !$view->setDisplay($choice['display']) || !$view->access($choice['display'])) {
-        continue;
-      }
-      foreach ($view->display_handler->getHandlers('field') as $id => $handler) {
-        $options[(string) $id] ??= (string) $handler->adminLabel();
-      }
-    }
-    \asort($options, SORT_NATURAL | SORT_FLAG_CASE);
-    return ['options' => $options, 'source' => $source];
-  }
-
-  /**
    * {@inheritdoc}
    */
   public function buildComponentInstanceForm(
@@ -347,7 +291,7 @@ final class ViewTemplateField extends ViewTemplateComponentSourceBase implements
     $values = $this->settingsFrom($inputValues);
     // No custom `#name`: the client's form serialization ignores it, so the
     // value would silently never be saved.
-    ['options' => $choices, 'source' => $source] = $this->fieldChoices($entity);
+    ['options' => $choices, 'source' => $source] = \Drupal::service(ViewFieldChoices::class)->forEntity($entity);
     if ($choices !== []) {
       if ($values[self::INPUT_FIELD] !== '' && !isset($choices[$values[self::INPUT_FIELD]])) {
         $choices[$values[self::INPUT_FIELD]] = $values[self::INPUT_FIELD];
@@ -356,8 +300,8 @@ final class ViewTemplateField extends ViewTemplateComponentSourceBase implements
         '#type' => 'select',
         '#title' => $this->t('Field'),
         '#description' => match ($source) {
-          'previewed' => $this->t('The fields of the view chosen under Page data, Preview with view.'),
-          'using' => $this->t('The fields of the views that use this template. Choose a view under Page data, Preview with view, to see only its fields.'),
+          ViewFieldChoices::SOURCE_PREVIEWED => $this->t('The fields of the view chosen under Page data, Preview with view.'),
+          ViewFieldChoices::SOURCE_USING => $this->t('The fields of the views that use this template. Choose a view under Page data, Preview with view, to see only its fields.'),
           default => $this->t('The fields of the views on this site. Choose a view under Page data, Preview with view, to see only its fields. Needs a view that uses the Fields row style.'),
         },
         '#options' => ['' => $this->t('- Choose a field -')] + $choices,

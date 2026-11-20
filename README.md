@@ -398,6 +398,10 @@ and makes it active, and moves placements if the component is replaced. Slot
 titles and descriptions are plain English for this reason: translated, the hash
 would depend on the interface language.
 
+Update hook numbers start at 10001 and go up by one. The module has no update
+hooks yet: the first one is added with the first component change after a site
+installs the module.
+
 `Drupal\canvas_view_template\Update\ComponentUpdater` does the work, in trees
 and in unpublished drafts, and is safe to run twice:
 
@@ -405,7 +409,7 @@ and in unpublished drafts, and is safe to run twice:
 /**
  * Adds the "Element" setting to "View title".
  */
-function canvas_view_template_update_11001(): void {
+function canvas_view_template_update_10001(): void {
   $updater = \Drupal::service(ComponentUpdater::class);
   $old_version = Component::load('canvas_view_template_title.view_title')->getActiveVersion();
   if ($updater->updateToShipped('canvas_view_template_title.view_title')) {

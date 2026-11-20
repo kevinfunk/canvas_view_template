@@ -46,12 +46,10 @@ final class ViewTemplateRenderer {
   public function render(ViewTemplate $view_template, ViewRenderData $data): array {
     $rows = $data->rows;
     $areas = $data->areas;
-    $row_renders = $data->rowRenders;
+    $row_set = RowSet::fromData($data);
     $current_page = $data->currentPage;
-    $field_data = $data->fieldData;
     $summary = $data->summary;
     $facts = $data->facts;
-    $item_urls = $data->itemUrls;
     $exposed = $data->exposed;
     $pager = $data->pager;
     $no_rows = $rows === [] || $rows === '';
@@ -86,9 +84,9 @@ final class ViewTemplateRenderer {
     // `array_key_exists()`, not `??`: NULL is a real value here.
     $empty_value = static fn (?string $uuid): mixed => $uuid !== NULL && \array_key_exists($uuid, $empty_values) ? $empty_values[$uuid] : [];
 
-    $repeater_outputs = self::computeRepeaterOutputs($view_template, $tree_items, $row_renders, $current_page, $field_data, $condition_values, $item_urls);
+    $repeater_outputs = self::computeRepeaterOutputs($view_template, $tree_items, $row_set, $current_page, $condition_values);
     // Outside a repeater, "View item" shows the first row.
-    $first_row = self::toRenderArray($row_renders[0] ?? []);
+    $first_row = $row_set->render(0);
 
     // Like Views' own template, "View rows" shows the empty text when there
     // are no rows, unless "View no results" is placed.
@@ -117,11 +115,11 @@ final class ViewTemplateRenderer {
         $component_instance instanceof ViewTemplateTitle => $fiber->resume($area('title')),
         $component_instance instanceof ViewTemplateSummary => $fiber->resume($summary),
         // Outside a repeater, a field shows the first item's value.
-        $component_instance instanceof ViewTemplateField => $fiber->resume(self::fieldValue($field_data, 0, $component_instance->getCurrentFieldId())),
+        $component_instance instanceof ViewTemplateField => $fiber->resume($row_set->fieldValue(0, $component_instance->getCurrentFieldId())),
         $component_instance instanceof ViewTemplateEmpty => $fiber->resume($empty_value($component_instance->getCurrentComponentUuid())),
         $component_instance instanceof ViewTemplateCondition => $fiber->resume($condition_values[$component_instance->getCurrentComponentUuid()] ?? NULL),
         // Outside a repeater, an item link goes to the first item.
-        $component_instance instanceof ViewTemplateItemLink => $fiber->resume(['url' => $item_urls[0] ?? NULL]),
+        $component_instance instanceof ViewTemplateItemLink => $fiber->resume(['url' => $row_set->url(0)]),
         // Suspended elsewhere (e.g. while loading entities): just continue.
         default => $fiber->resume(),
       };
@@ -140,25 +138,21 @@ final class ViewTemplateRenderer {
    *   The view template being rendered.
    * @param array $tree_items
    *   The raw component tree items.
-   * @param array<int, array|string> $row_renders
-   *   Each row rendered individually.
+   * @param \Drupal\canvas_view_template\Render\RowSet $rows
+   *   All rows.
    * @param int $current_page
    *   The pager's current page, 0-based.
-   * @param array $field_data
-   *   The rows' fields and labels.
-   * @param array<string, bool|null> $condition_values
+   * @param array<string, array|null> $condition_values
    *   What each "View condition" resumes with, by tree UUID.
-   * @param array<int, string|null> $item_urls
-   *   The page each result item links to.
    *
    * @return array<string, array>
    *   Each repeater's render, keyed by its tree UUID.
    */
-  private static function computeRepeaterOutputs(ViewTemplate $view_template, array $tree_items, array $row_renders, int $current_page, array $field_data, array $condition_values, array $item_urls): array {
+  private static function computeRepeaterOutputs(ViewTemplate $view_template, array $tree_items, RowSet $rows, int $current_page, array $condition_values): array {
     $outputs = [];
     foreach ($tree_items as $item) {
       if ($item['component_id'] === self::VIEW_REPEATER_COMPONENT_ID) {
-        $outputs[$item['uuid']] = self::renderRepeater($view_template, $tree_items, $item, $row_renders, $current_page, $field_data, $condition_values, $item_urls);
+        $outputs[$item['uuid']] = self::renderRepeater($view_template, $tree_items, $item, $rows, $current_page, $condition_values);
       }
     }
     return $outputs;
@@ -173,22 +167,18 @@ final class ViewTemplateRenderer {
    *   The raw component tree items.
    * @param array $repeater_item
    *   The "View repeater" tree item.
-   * @param array<int, array|string> $row_renders
+   * @param \Drupal\canvas_view_template\Render\RowSet $rows
    *   All rows; this repeater's limit and offset are applied here.
    * @param int $current_page
    *   The pager's current page, 0-based.
-   * @param array $field_data
-   *   The rows' fields and labels.
-   * @param array<string, bool|null> $condition_values
+   * @param array<string, array|null> $condition_values
    *   What each "View condition" resumes with, by tree UUID.
-   * @param array<int, string|null> $item_urls
-   *   The page each result item links to.
    *
    * @return array
    *   One copy of the slot subtree per row; empty if the slot is empty or the
    *   page condition excludes $current_page.
    */
-  private static function renderRepeater(ViewTemplate $view_template, array $tree_items, array $repeater_item, array $row_renders, int $current_page, array $field_data, array $condition_values, array $item_urls): array {
+  private static function renderRepeater(ViewTemplate $view_template, array $tree_items, array $repeater_item, RowSet $rows, int $current_page, array $condition_values): array {
     $repeater_uuid = $repeater_item['uuid'];
     // Stored values may be strings or junk (API, config import): read safely.
     ['limit' => $limit, 'offset' => $offset, 'mode' => $page_condition_mode, 'page' => $page_condition_page] = ViewTemplateRepeater::normalizeSettings($repeater_item['inputs'] ?? []);
@@ -196,14 +186,8 @@ final class ViewTemplateRenderer {
       return [];
     }
 
-    $sliced_rows = \array_slice($row_renders, $offset, $limit);
-    $sliced_fields = [
-      'labels' => $field_data['labels'] ?? [],
-      'rows' => \array_slice($field_data['rows'] ?? [], $offset, $limit),
-    ];
-
     $subtree_items = self::collectSlotSubtree($tree_items, $repeater_uuid, ViewTemplateRepeater::SLOT_NAME);
-    return self::renderRowsThroughSubtree($view_template, $subtree_items, $sliced_rows, $sliced_fields, $condition_values, \array_slice($item_urls, $offset, $limit));
+    return self::renderRowsThroughSubtree($view_template, $subtree_items, $rows->slice($offset, $limit), $condition_values);
   }
 
   /**
@@ -275,34 +259,30 @@ final class ViewTemplateRenderer {
    *   The view template being rendered.
    * @param array $subtree_items
    *   The re-rooted subtree items, from ::collectSlotSubtree().
-   * @param array<int, array|string> $row_renders
+   * @param \Drupal\canvas_view_template\Render\RowSet $rows
    *   The rows to render, already limited and offset.
-   * @param array $field_data
-   *   The rows' fields and labels.
-   * @param array<string, bool|null> $condition_values
+   * @param array<string, array|null> $condition_values
    *   What each "View condition" resumes with, by tree UUID.
-   * @param array<int, string|null> $item_urls
-   *   The page each result item links to.
    *
    * @return array
    *   One copy of the subtree per row; empty if there is no subtree.
    */
-  private static function renderRowsThroughSubtree(ViewTemplate $view_template, array $subtree_items, array $row_renders, array $field_data, array $condition_values, array $item_urls): array {
+  private static function renderRowsThroughSubtree(ViewTemplate $view_template, array $subtree_items, RowSet $rows, array $condition_values): array {
     if ($subtree_items === []) {
       return [];
     }
     $assembled = [];
     $subtree = $view_template->getComponentSubtree($subtree_items);
-    foreach ($row_renders as $index => $row) {
+    foreach (\array_keys($rows->renders) as $index) {
       $fiber = new \Fiber(fn() => $subtree->toRenderable($view_template, FALSE));
       $component_instance = $fiber->start();
-      $row = self::toRenderArray($row);
+      $row = $rows->render($index);
       while ($fiber->isSuspended()) {
         $component_instance = match (TRUE) {
           $component_instance instanceof ViewTemplatePlaceholder && $component_instance->getSourceSpecificComponentId() === ViewTemplatePlaceholder::VIEW_ITEM_LOCAL_ID => $fiber->resume($row),
-          $component_instance instanceof ViewTemplateField => $fiber->resume(self::fieldValue($field_data, $index, $component_instance->getCurrentFieldId())),
+          $component_instance instanceof ViewTemplateField => $fiber->resume($rows->fieldValue($index, $component_instance->getCurrentFieldId())),
           $component_instance instanceof ViewTemplateCondition => $fiber->resume($condition_values[$component_instance->getCurrentComponentUuid()] ?? NULL),
-          $component_instance instanceof ViewTemplateItemLink => $fiber->resume(['url' => $item_urls[$index] ?? NULL]),
+          $component_instance instanceof ViewTemplateItemLink => $fiber->resume(['url' => $rows->url($index)]),
           default => $fiber->resume(),
         };
       }
@@ -310,29 +290,6 @@ final class ViewTemplateRenderer {
       $assembled['repeated_item_' . $index] = $fiber->getReturn();
     }
     return $assembled;
-  }
-
-  /**
-   * What "View field" resumes with: one field's value and label for one row.
-   *
-   * @param array $field_data
-   *   The rows' fields and labels.
-   * @param int $row_index
-   *   The row, counting from 0 within the rows given.
-   * @param string|null $field_id
-   *   The field's machine name.
-   *
-   * @return array
-   *   `value` and `label`, or an empty array if there is no such field.
-   */
-  private static function fieldValue(array $field_data, int $row_index, ?string $field_id): array {
-    if ($field_id === NULL || $field_id === '' || !isset($field_data['rows'][$row_index][$field_id])) {
-      return [];
-    }
-    return [
-      'value' => $field_data['rows'][$row_index][$field_id],
-      'label' => $field_data['labels'][$field_id] ?? '',
-    ];
   }
 
   /**
