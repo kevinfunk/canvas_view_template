@@ -8,8 +8,12 @@ use Drupal\canvas\Entity\Component;
 use Drupal\canvas_view_template\Entity\ViewTemplate;
 use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateField;
 use Drupal\canvas_view_template\Plugin\views\style\ViewTemplateStyle;
+use Drupal\canvas_view_template\Preview\ViewTemplatePreviewSelection;
 use Drupal\canvas_view_template\ViewFieldChoices;
+use Drupal\canvas_view_template\ViewTemplateUsage;
 use Drupal\Core\Form\FormState;
+use Drupal\Core\Session\AccountInterface;
+use Drupal\Tests\canvas\Kernel\CanvasKernelTestBase;
 use Drupal\views\Entity\View;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
@@ -20,6 +24,19 @@ use PHPUnit\Framework\Attributes\Group;
 #[CoversClass(ViewTemplateField::class)]
 #[Group('canvas_view_template')]
 final class ViewTemplateFieldChoicesTest extends ViewTemplateKernelTestBase {
+
+  /**
+   * {@inheritdoc}
+   */
+  protected static $modules = [
+    ...CanvasKernelTestBase::CANVAS_KERNEL_TEST_MINIMAL_MODULES,
+    'canvas_dev_mode',
+    'canvas_view_template',
+    // Without these Views has no data for the node table, and every handler is
+    // a broken one with no admin label.
+    'node',
+    'views',
+  ];
 
   /**
    * Fields come from the enabled Views' default display, without building them.
@@ -166,6 +183,109 @@ final class ViewTemplateFieldChoicesTest extends ViewTemplateKernelTestBase {
       self::assertArrayHasKey('cvt_other_field', $all['options']);
       self::assertArrayHasKey('cvt_mine_field', $all['options']);
     }
+  }
+
+  /**
+   * Choices are sorted by label, numbers by value, ignoring case.
+   */
+  public function testChoicesAreSortedNaturallyIgnoringCase(): void {
+    $this->createView('cvt_z', TRUE, ['cvt_zebra' => ['id' => 'cvt_zebra', 'label' => 'Zebra']]);
+    $this->createView('cvt_y', TRUE, [
+      'cvt_ten' => ['id' => 'cvt_ten', 'label' => 'Item 10'],
+      'cvt_nine' => ['id' => 'cvt_nine', 'label' => 'item 9'],
+    ]);
+    $this->createView('cvt_x', TRUE, ['cvt_apple' => ['id' => 'cvt_apple', 'label' => 'apple']]);
+
+    $options = $this->container->get(ViewFieldChoices::class)->forEntity(NULL)['options'];
+    $ours = \array_filter($options, static fn (string $key): bool => \str_starts_with($key, 'cvt_'), ARRAY_FILTER_USE_KEY);
+    // The Views are listed by name, so unsorted this would be apple, ten, nine.
+    self::assertSame(['cvt_apple', 'cvt_nine', 'cvt_ten', 'cvt_zebra'], \array_keys($ours));
+  }
+
+  /**
+   * A disabled View offers no fields, even to someone who may edit Views.
+   */
+  public function testDisabledViewsAreNotOfferedToAdmins(): void {
+    $this->createView('cvt_on', TRUE, ['cvt_on_field' => ['id' => 'cvt_on_field', 'label' => 'On']]);
+    $this->createView('cvt_off', FALSE, ['cvt_off_field' => ['id' => 'cvt_off_field', 'label' => 'Off']]);
+    $admin = $this->createMock(AccountInterface::class);
+    $admin->method('hasPermission')->willReturn(TRUE);
+    $choices = new ViewFieldChoices(
+      $this->container->get(ViewTemplatePreviewSelection::class),
+      $this->container->get(ViewTemplateUsage::class),
+      $this->container->get('config.factory'),
+      $admin,
+    );
+
+    $options = $choices->forEntity(NULL)['options'];
+    self::assertArrayHasKey('cvt_on_field', $options);
+    self::assertArrayNotHasKey('cvt_off_field', $options);
+  }
+
+  /**
+   * Displays using the template: the first names a field, restricted ones hide.
+   *
+   * A feed cannot be previewed, so a template used only by feeds takes its
+   * choices from every display using it.
+   */
+  public function testDisplaysUsingTheTemplateNameFieldsInOrderAndRespectAccess(): void {
+    // The real node title handler, so the admin label is the one shown.
+    $field = static fn (string $id, string $label): array => [
+      $id => [
+        'id' => $id,
+        'label' => '',
+        'admin_label' => $label,
+        'plugin_id' => 'field',
+        'entity_type' => 'node',
+        'entity_field' => 'title',
+      ],
+    ];
+    $this->createView('cvt_a', TRUE, $field('cvt_shared', 'First'));
+    $this->createView('cvt_b', TRUE, $field('cvt_shared', 'Second') + $field('cvt_b_only', 'B only'));
+    $this->createView('cvt_locked', TRUE, $field('cvt_locked_field', 'Locked'));
+    ViewTemplate::create(['id' => 'shared_feed', 'label' => 'Shared feed'])->save();
+    $this->addFeedDisplay('cvt_a', 'shared_feed');
+    $this->addFeedDisplay('cvt_b', 'shared_feed');
+    $this->addFeedDisplay('cvt_locked', 'shared_feed', [
+      'defaults' => ['access' => FALSE],
+      'access' => ['type' => 'perm', 'options' => ['perm' => 'administer nodes']],
+    ]);
+
+    $using = $this->container->get(ViewFieldChoices::class)->forEntity(ViewTemplate::load('shared_feed'));
+    self::assertSame(ViewFieldChoices::SOURCE_USING, $using['source']);
+    // The display listed first (View "Cvt_a") names the shared field, and the
+    // restricted display's field is left out.
+    self::assertSame(['cvt_b_only' => 'B only', 'cvt_shared' => 'First'], $using['options']);
+  }
+
+  /**
+   * Adds a feed display that uses a template to a View.
+   *
+   * @param string $view_id
+   *   The View.
+   * @param string $template_id
+   *   The template the display uses.
+   * @param array<string, mixed> $extra
+   *   More display options; `defaults` is merged with the style defaults.
+   */
+  private function addFeedDisplay(string $view_id, string $template_id, array $extra = []): void {
+    $view = View::load($view_id);
+    $displays = $view->get('display');
+    $options = [
+      'path' => $view_id . '.xml',
+      'defaults' => ['style' => FALSE, 'row' => FALSE, 'fields' => FALSE] + ($extra['defaults'] ?? []),
+      'style' => ['type' => ViewTemplateStyle::PLUGIN_ID, 'options' => [ViewTemplateStyle::OPTION_KEY => $template_id]],
+      'row' => ['type' => 'fields'],
+      'fields' => $displays['default']['display_options']['fields'],
+    ] + $extra;
+    $displays['feed_1'] = [
+      'display_plugin' => 'feed',
+      'id' => 'feed_1',
+      'display_title' => 'Feed',
+      'position' => 1,
+      'display_options' => $options,
+    ];
+    $view->set('display', $displays)->save();
   }
 
 }

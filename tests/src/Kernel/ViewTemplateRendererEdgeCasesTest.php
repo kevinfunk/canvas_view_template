@@ -332,4 +332,23 @@ final class ViewTemplateRendererEdgeCasesTest extends ViewTemplateKernelTestBase
     }
   }
 
+  /**
+   * A repeater's contents render whatever order the tree lists them in.
+   *
+   * Nothing guarantees a parent comes before its children. The repeater's own
+   * children are found first, so it takes a chain a level deeper, listed
+   * deepest first, to need the tree swept again: a "View item" inside a
+   * condition inside a link inside the repeater.
+   */
+  public function testContentsListedBeforeTheirParentsStillRender(): void {
+    $repeater = $this->treeItem(self::REPEATER);
+    $link = $this->linkIn($repeater);
+    $condition = $this->treeItem(self::CONDITION, $link['uuid'], ViewTemplateItemLink::SLOT_NAME);
+    $item = $this->treeItem(self::ITEM, $condition['uuid'], ViewTemplateCondition::SLOT_NAME, []);
+    $data = new ViewRenderData(rowRenders: self::ROWS, itemUrls: ['/a', '/b', '/c'], facts: ['has_results' => TRUE]);
+    foreach ([[$repeater, $link, $condition, $item], [$item, $condition, $link, $repeater]] as $tree) {
+      self::assertRowsShown(['A', 'B', 'C'], $this->renderTree($tree, $data));
+    }
+  }
+
 }

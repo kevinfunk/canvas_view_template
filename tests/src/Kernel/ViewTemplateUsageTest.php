@@ -8,6 +8,7 @@ use Drupal\canvas_view_template\Entity\ViewTemplate;
 use Drupal\canvas_view_template\Plugin\views\style\ViewTemplateStyle;
 use Drupal\canvas_view_template\ViewTemplateUninstallValidator;
 use Drupal\canvas_view_template\ViewTemplateUsage;
+use Drupal\Core\Session\AnonymousUserSession;
 use Drupal\Tests\canvas\Kernel\CanvasKernelTestBase;
 use Drupal\views\Entity\View;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -140,6 +141,8 @@ final class ViewTemplateUsageTest extends ViewTemplateKernelTestBase {
     $this->createView('plain', ['default' => ['style' => $plain], 'page_1' => ['path' => 'one']]);
     $this->createView('unset', ['default' => ['style' => $unset], 'page_1' => ['path' => 'two']]);
     $this->createView('bare', ['default' => [], 'page_1' => ['path' => 'three']]);
+    // "- None -" is saved as an empty template id.
+    $this->createView('blank', ['default' => ['style' => self::style('')], 'page_1' => ['path' => 'four']]);
     self::assertSame([], $this->container->get(ViewTemplateUsage::class)->displaysByTemplate());
   }
 
@@ -182,6 +185,16 @@ final class ViewTemplateUsageTest extends ViewTemplateKernelTestBase {
     }
     $reasons = $this->container->get(ViewTemplateUninstallValidator::class)->validate('canvas_view_template');
     self::assertStringContainsString('and 2 more', (string) $reasons[0]);
+  }
+
+  /**
+   * A View that does not exist is not visible to anyone who is not an admin.
+   */
+  public function testMissingViewIsNotVisible(): void {
+    $usage = $this->container->get(ViewTemplateUsage::class);
+    $account = new AnonymousUserSession();
+    self::assertFalse($usage->canSee('no_such_view', NULL, $account));
+    self::assertFalse($usage->canSee('no_such_view', 'page_1', $account));
   }
 
 }

@@ -6,11 +6,16 @@ namespace Drupal\Tests\canvas_view_template\Kernel;
 
 use Drupal\canvas_view_template\Entity\ViewTemplate;
 use Drupal\canvas_view_template\Hook\ViewTemplateThemeHooks;
+use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateField;
+use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateItemLink;
 use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplatePlaceholder;
+use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateRepeater;
 use Drupal\canvas_view_template\Plugin\views\style\ViewTemplateStyle;
 use Drupal\Core\Session\AccountInterface;
+use Drupal\language\Entity\ConfigurableLanguage;
 use Drupal\node\Entity\Node;
 use Drupal\node\Entity\NodeType;
+use Drupal\path_alias\Entity\PathAlias;
 use Drupal\Tests\canvas\Kernel\CanvasKernelTestBase;
 use Drupal\Tests\user\Traits\UserCreationTrait;
 use Drupal\views\Entity\View;
@@ -42,6 +47,8 @@ final class ViewTemplateFrontEndCacheTest extends ViewTemplateKernelTestBase {
     ...CanvasKernelTestBase::CANVAS_KERNEL_TEST_MINIMAL_MODULES,
     'canvas_dev_mode',
     'canvas_view_template',
+    'content_translation',
+    'language',
     'node',
     'views',
   ];
@@ -63,7 +70,10 @@ final class ViewTemplateFrontEndCacheTest extends ViewTemplateKernelTestBase {
     parent::setUp();
     $this->installNodeSupport();
     $this->installEntitySchema('user');
+    $this->installConfig(['language']);
+    ConfigurableLanguage::createFromLangcode('fr')->save();
     NodeType::create(['type' => 'article', 'name' => 'Article'])->save();
+    $this->container->get('content_translation.manager')->setEnabled('node', 'article', TRUE);
     // Node IDs follow this order, and the View sorts by them: the unpublished
     // node is second, so it changes what both pages show for an editor.
     foreach (['Alpha' => TRUE, 'Secret' => FALSE, 'Bravo' => TRUE, 'Charlie' => TRUE, 'Delta' => TRUE] as $title => $published) {
@@ -157,11 +167,13 @@ final class ViewTemplateFrontEndCacheTest extends ViewTemplateKernelTestBase {
    *   Who is viewing.
    * @param array<string, mixed> $query
    *   The query string: `page` and the exposed filter `search`.
+   * @param string $view_id
+   *   The View to render.
    *
    * @return string
    *   The HTML.
    */
-  private function renderAs(AccountInterface $account, array $query = []): string {
+  private function renderAs(AccountInterface $account, array $query = [], string $view_id = 'cache_view'): string {
     $stack = $this->container->get('request_stack');
     // The exposed filter's form needs a session, as a real request has.
     $request = Request::create('/cache-view', 'GET', $query);
@@ -169,7 +181,7 @@ final class ViewTemplateFrontEndCacheTest extends ViewTemplateKernelTestBase {
     $stack->push($request);
     $this->setCurrentUser($account);
     try {
-      $view = Views::getView('cache_view');
+      $view = Views::getView($view_id);
       self::assertNotNull($view);
       $build = $view->buildRenderable('default');
       self::assertNotEmpty($build['#cache']['keys'] ?? [], 'The View is not render cached, so this test proves nothing.');
@@ -205,6 +217,128 @@ final class ViewTemplateFrontEndCacheTest extends ViewTemplateKernelTestBase {
           self::assertStringNotContainsString($title, $html, \sprintf('%s must not show %s (pass %d).', $name, $title, $pass));
         }
       }
+    }
+  }
+
+  /**
+   * Switches the content and interface language for what renders next.
+   */
+  private function useLanguage(string $langcode): void {
+    // In a kernel test the negotiator is not given the current user, and
+    // without one it skips negotiation and uses the default language.
+    $this->container->get('language_negotiator')->setCurrentUser($this->container->get('current_user'));
+    $this->config('language.negotiation')->set('selected_langcode', $langcode)->save();
+    $this->container->get('language_manager')->reset();
+  }
+
+  /**
+   * Each language gets its own rows and links, whatever the cache holds.
+   */
+  public function testEachLanguageGetsItsOwnOutput(): void {
+    // Each node also exists in French, and has a page in each language.
+    foreach (Node::loadMultiple() as $node) {
+      $title = (string) $node->label();
+      $node->addTranslation('fr', ['title' => $title . ' FR'])->save();
+      foreach (['en' => '', 'fr' => '-fr'] as $langcode => $suffix) {
+        PathAlias::create([
+          'path' => '/node/' . $node->id(),
+          'alias' => '/' . \strtolower($title) . $suffix,
+          'langcode' => $langcode,
+        ])->save();
+      }
+    }
+    $this->config('language.types')
+      ->set('configurable', ['language_interface', 'language_content'])
+      ->set('negotiation.language_content.enabled', ['language-selected' => 0])
+      ->set('negotiation.language_interface.enabled', ['language-selected' => 0])
+      ->save();
+    $repeater = $this->treeItem(ViewTemplateRepeater::SOURCE_PLUGIN_ID . '.' . ViewTemplateRepeater::LOCAL_ID);
+    $link = $this->treeItem(
+      ViewTemplateItemLink::SOURCE_PLUGIN_ID . '.' . ViewTemplateItemLink::LOCAL_ID,
+      $repeater['uuid'],
+      ViewTemplateRepeater::SLOT_NAME,
+    );
+    $inputs = [
+      ViewTemplateField::INPUT_FIELD => 'title',
+      ViewTemplateField::INPUT_ELEMENT => 'span',
+      ViewTemplateField::INPUT_LABEL => 'hidden',
+    ];
+    $title = $this->treeItem(
+      ViewTemplateField::SOURCE_PLUGIN_ID . '.' . ViewTemplateField::LOCAL_ID,
+      $link['uuid'],
+      ViewTemplateItemLink::SLOT_NAME,
+      $inputs,
+    );
+    ViewTemplate::create([
+      'id' => 'language_template',
+      'label' => 'Language template',
+      'component_tree' => [$repeater, $link, $title],
+    ])->save();
+    $display_options = [
+      'style' => [
+        'type' => ViewTemplateStyle::PLUGIN_ID,
+        'options' => [ViewTemplateStyle::OPTION_KEY => 'language_template'],
+      ],
+      'row' => ['type' => 'fields'],
+      'pager' => ['type' => 'none', 'options' => []],
+      'rendering_language' => '***LANGUAGE_language_content***',
+      // One row per node, in the content language: without this, Views lists
+      // every translation as a row.
+      'filters' => [
+        'langcode' => [
+          'id' => 'langcode',
+          'table' => 'node_field_data',
+          'field' => 'langcode',
+          'entity_type' => 'node',
+          'entity_field' => 'langcode',
+          'plugin_id' => 'language',
+          'operator' => 'in',
+          'value' => ['***LANGUAGE_language_content***' => '***LANGUAGE_language_content***'],
+        ],
+      ],
+      'fields' => [
+        'title' => [
+          'id' => 'title',
+          'table' => 'node_field_data',
+          'field' => 'title',
+          'entity_type' => 'node',
+          'entity_field' => 'title',
+          'plugin_id' => 'field',
+          'label' => '',
+          'type' => 'string',
+          'settings' => ['link_to_entity' => FALSE],
+        ],
+      ],
+    ];
+    View::create([
+      'id' => 'language_view',
+      'label' => 'Language view',
+      'base_table' => 'node_field_data',
+      'display' => [
+        'default' => [
+          'display_plugin' => 'default',
+          'id' => 'default',
+          'display_options' => $display_options,
+        ],
+      ],
+    ])->save();
+
+    // The title and the page of the first node, in each language.
+    $expected = [
+      'en' => ['Alpha', 'href="/alpha"'],
+      'fr' => ['Alpha FR', 'href="/alpha-fr"'],
+    ];
+    // English, French, then both again: the second round is served from cache.
+    foreach (['en', 'fr', 'en', 'fr', 'fr', 'en'] as $round => $langcode) {
+      $this->useLanguage($langcode);
+      $html = $this->renderAs($this->reader, [], 'language_view');
+      $other = $langcode === 'en' ? 'fr' : 'en';
+      foreach ($expected[$langcode] as $shown) {
+        self::assertStringContainsString($shown, $html, \sprintf('%s shows %s (round %d).', $langcode, $shown, $round));
+      }
+      // "Alpha" is inside "Alpha FR", so look for the title as an element.
+      self::assertStringNotContainsString('>' . $expected[$other][0] . '<', $html, \sprintf('%s must not show %s (round %d).', $langcode, $expected[$other][0], $round));
+      self::assertStringNotContainsString($expected[$other][1], $html, \sprintf('%s must not link to %s (round %d).', $langcode, $expected[$other][1], $round));
     }
   }
 

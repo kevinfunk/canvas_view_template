@@ -84,4 +84,13 @@ final class RowSetTest extends UnitTestCase {
     self::assertSame(['value' => 'A', 'label' => ''], (new RowSet([], ['rows' => [['x' => 'A']]]))->fieldValue(0, 'x'));
   }
 
+  /**
+   * A NULL value counts as no value, an empty one does not.
+   */
+  public function testNullFieldValueIsNoValue(): void {
+    $set = new RowSet([], ['labels' => ['f' => 'F'], 'rows' => [['f' => NULL], ['f' => []]]]);
+    self::assertSame([], $set->fieldValue(0, 'f'));
+    self::assertSame(['value' => [], 'label' => 'F'], $set->fieldValue(1, 'f'));
+  }
+
 }

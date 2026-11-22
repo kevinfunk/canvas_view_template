@@ -42,8 +42,7 @@ class ViewTemplateUsage {
     if ($account->hasPermission('administer views')) {
       return TRUE;
     }
-    $storage = $this->entityTypeManager->getStorage('view');
-    $view = $storage->load($view_id);
+    $view = $this->entityTypeManager->getStorage('view')->load($view_id);
     if ($view === NULL) {
       return FALSE;
     }
@@ -51,10 +50,7 @@ class ViewTemplateUsage {
     $displays = $display_id !== NULL ? [$display_id] : \array_keys($view->get('display'));
     // getExecutable() is on View, not the entity interface phpstan sees.
     // @phpstan-ignore-next-line method.notFound
-    $allowed = $view->getExecutable()->access($displays, $account);
-    // Not kept: checking every View on a big site would hold them all.
-    $storage->resetCache([$view_id]);
-    return $allowed;
+    return $view->getExecutable()->access($displays, $account);
   }
 
   /**

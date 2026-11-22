@@ -96,6 +96,24 @@ final class ViewTemplateConditionTest extends ViewTemplateKernelTestBase {
   }
 
   /**
+   * A condition with no stored setting is "the view has results".
+   */
+  public function testMissingConditionDefaultsToHasResults(): void {
+    [$condition, $child] = $this->conditionWithPager(ViewConditions::HAS_RESULTS);
+    $condition['inputs'] = [];
+    $view_template = ViewTemplate::create([
+      'id' => 'test',
+      'label' => 'Test',
+      'component_tree' => [$condition, $child],
+    ]);
+
+    $results_only = ['has_results' => TRUE, 'filters_applied' => FALSE];
+    $filters_only = ['has_results' => FALSE, 'filters_applied' => TRUE];
+    self::assertStringContainsString('THE_PAGER', $this->renderTemplate($view_template, $results_only));
+    self::assertStringNotContainsString('THE_PAGER', $this->renderTemplate($view_template, $filters_only));
+  }
+
+  /**
    * A condition that looks at a piece of the view uses the view's pieces.
    */
   public function testConditionOnViewPiece(): void {
