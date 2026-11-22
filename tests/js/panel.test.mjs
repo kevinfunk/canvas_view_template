@@ -1,6 +1,8 @@
 // Runs the panel's pure helpers (extension/names.js, extension/strings.js).
 // No dependencies: node tests/js/panel.test.mjs
 import assert from 'node:assert';
+import fs from 'node:fs';
+import path from 'node:path';
 
 globalThis.document = { documentElement: { lang: 'en' } };
 const { slug, freeId, sortTemplates, matchesQuery, MACHINE_NAME } = await import('../../extension/names.js');
@@ -94,6 +96,32 @@ check('summarize lists up to three names and counts the rest', () => {
   assert.strictEqual(list(['a', 'b']), 'a and b');
   assert.strictEqual(summarize(['a', 'b', 'c']), 'a, b, and c');
   assert.strictEqual(summarize(['a', 'b', 'c', 'd', 'e']), 'a, b, c, and 2 more');
+});
+
+check('t keeps what it is given as text: no HTML escaping, no markup', () => {
+  setStrings({}, 'en');
+  assert.strictEqual(t('Used by @views', { views: 'News & <b>Events</b>' }), 'Used by News & <b>Events</b>');
+});
+
+// The panel sets every name with textContent. innerHTML, and anything else that
+// parses markup, is only for the two icons, which are constants.
+check('the panel scripts parse markup only for their constant icons', () => {
+  const dir = path.join(path.dirname(new URL(import.meta.url).pathname), '..', '..', 'extension');
+  const sink = /innerHTML|outerHTML|insertAdjacentHTML|document\.write|createContextualFragment|\bsrcdoc\b|\beval\(|new Function/;
+  const allowed = [/^\s*icon\.innerHTML = TEMPLATE_ICON;\s*$/, /^\s*dots\.innerHTML = DOTS_ICON;\s*$/];
+  const found = [];
+  for (const file of fs.readdirSync(dir).filter((name) => name.endsWith('.js'))) {
+    fs.readFileSync(path.join(dir, file), 'utf8').split('\n').forEach((line, index) => {
+      if (sink.test(line) && !allowed.some((pattern) => pattern.test(line))) {
+        found.push(`${file}:${index + 1}: ${line.trim()}`);
+      }
+    });
+  }
+  assert.deepStrictEqual(found, [], 'New markup sink in the panel: ' + found.join('; '));
+  const source = fs.readFileSync(path.join(dir, 'app.js'), 'utf8');
+  const constants = source.match(/const (TEMPLATE_ICON|DOTS_ICON) =\s*([^;]*);/g) ?? [];
+  assert.strictEqual(constants.length, 2, 'The two icon constants were not found.');
+  assert.ok(constants.every((text) => !text.includes('${')), 'An icon constant is built from a value.');
 });
 
 console.log(results.join('\n'));

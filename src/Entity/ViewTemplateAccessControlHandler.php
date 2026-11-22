@@ -6,6 +6,7 @@ namespace Drupal\canvas_view_template\Entity;
 
 use Drupal\canvas\EntityHandlers\CanvasConfigEntityAccessControlHandler;
 use Drupal\canvas_view_template\ViewTemplateUsage;
+use Drupal\Component\Render\PlainTextOutput;
 use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Access\AccessResultInterface;
 use Drupal\Core\Config\ConfigManagerInterface;
@@ -74,10 +75,12 @@ final class ViewTemplateAccessControlHandler extends CanvasConfigEntityAccessCon
     if ($hidden > 0) {
       $labels[] = (string) new TranslatableMarkup('@count more you cannot access', ['@count' => $hidden]);
     }
-    return AccessResult::forbidden((string) new TranslatableMarkup(
+    // Plain text: the panel shows the reason as text, so a View called
+    // "News & Events" must not come out as "News &amp; Events".
+    return AccessResult::forbidden(PlainTextOutput::renderFromHtml(new TranslatableMarkup(
       'This view template is used by @displays. Choose another template in their Format settings first.',
       ['@displays' => \implode(', ', $labels)],
-    ))
+    )))
       ->addCacheContexts(['user.permissions'])
       ->cachePerPermissions()
       ->addCacheableDependency($entity)
