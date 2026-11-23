@@ -114,8 +114,6 @@ final class ViewTemplateRepeater extends ViewTemplateComponentSourceBase impleme
    * {@inheritdoc}
    */
   public function getSlotDefinitions(): array {
-    // Not translated: the version hash includes these, so it must not depend
-    // on the interface language.
     return [
       self::SLOT_NAME => [
         'title' => 'Item',

@@ -28,13 +28,17 @@ module adds:
 
 - A new `View template` entity, edited in Canvas's own editor.
 - Sixteen new Library components for use inside a view template:
-  `View rows`, `View exposed filters`, `View pager`, `View header`,
-  `View footer`, `View more link`, `View attachments`, `View feed icons`, `View condition` (a container shown only when a condition is met), `View item link` (a container linking its contents to the current item's page), `View no results` (a container shown
-  only when the view has no results), `View title`, `View item` (a single
-  item, meant to be repeated), `View field` (one field of the current item),
-  `View result summary` ("Displaying 1 - 10 of 54"), and `View repeater`
-  (repeats its contents once per item, with its own limit/offset and an
-  optional page condition — e.g. "only on page 1").
+  - The view's output, each placed where you want it: `View rows`,
+    `View exposed filters`, `View pager`, `View header`, `View footer`,
+    `View more link`, `View attachments`, `View feed icons`, `View title`
+    and `View result summary` ("Displaying 1 - 10 of 54").
+  - Containers shown only in some cases: `View condition` (when a condition
+    is met) and `View no results` (when the view has no results).
+  - Per-item components: `View repeater` (repeats its contents once per item,
+    with its own limit, offset and optional page condition, for example "only
+    on page 1"), `View item` (a single item, meant to be repeated), `View
+    field` (one field of the current item) and `View item link` (a container
+    linking its contents to the current item's page).
 - A `Canvas view template` option in the Views UI's Format list, to
   select which view template a display renders through.
 - A `Page template` option alongside it, to override which Canvas page

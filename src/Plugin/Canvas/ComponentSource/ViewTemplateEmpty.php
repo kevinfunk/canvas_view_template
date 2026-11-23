@@ -47,8 +47,6 @@ final class ViewTemplateEmpty extends ViewTemplateComponentSourceBase implements
    * {@inheritdoc}
    */
   public function getSlotDefinitions(): array {
-    // Not translated: the version hash includes these, so it must not depend
-    // on the interface language.
     return [
       self::SLOT_NAME => [
         'title' => 'Content',

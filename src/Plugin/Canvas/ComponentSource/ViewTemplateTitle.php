@@ -140,8 +140,6 @@ final class ViewTemplateTitle extends ViewTemplateComponentSourceBase {
     ?EntityInterface $entity = NULL,
     array $settings = [],
   ): array {
-    // No custom `#name`: the client's form serialization ignores it, so the
-    // value would silently never be saved.
     $form[self::INPUT_ELEMENT] = [
       '#type' => 'select',
       '#title' => $this->t('Element'),

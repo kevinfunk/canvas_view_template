@@ -25,6 +25,12 @@ use Symfony\Component\Validator\ConstraintViolationListInterface;
  * returns TRUE from ::requiresExplicitInput() and lists them in
  * ::getDefaultExplicitInput(); the stored shape then follows from that.
  *
+ * Two rules for the subclasses:
+ * - Slot titles and descriptions are not translated. The component's version
+ *   hash includes them, so it must not depend on the interface language.
+ * - A settings form element gets no custom `#name`. The editor's form
+ *   serialization ignores it, so the value would silently never be saved.
+ *
  * @phpstan-ignore classExtendsInternalClass.classExtendsInternalClass
  */
 abstract class ViewTemplateComponentSourceBase extends ComponentSourceBase {

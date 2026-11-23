@@ -77,8 +77,6 @@ final class ViewTemplateItemLink extends ViewTemplateComponentSourceBase impleme
    * {@inheritdoc}
    */
   public function getSlotDefinitions(): array {
-    // Not translated: the version hash includes these, so it must not depend
-    // on the interface language.
     return [
       self::SLOT_NAME => [
         'title' => 'Content',
@@ -187,8 +185,6 @@ final class ViewTemplateItemLink extends ViewTemplateComponentSourceBase impleme
     ?EntityInterface $entity = NULL,
     array $settings = [],
   ): array {
-    // No custom `#name`: the client's form serialization ignores it, so the
-    // value would silently never be saved.
     $form[self::INPUT_OPEN] = [
       '#type' => 'select',
       '#title' => $this->t('Open in'),

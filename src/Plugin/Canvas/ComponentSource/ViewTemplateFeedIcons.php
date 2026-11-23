@@ -134,8 +134,6 @@ final class ViewTemplateFeedIcons extends ViewTemplateComponentSourceBase {
     ?EntityInterface $entity = NULL,
     array $settings = [],
   ): array {
-    // No custom `#name`: the client's form serialization ignores it, so the
-    // value would silently never be saved.
     $form[self::INPUT_LABEL] = [
       '#type' => 'select',
       '#title' => $this->t('Label'),

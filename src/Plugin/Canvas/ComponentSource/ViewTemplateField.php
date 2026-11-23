@@ -289,8 +289,6 @@ final class ViewTemplateField extends ViewTemplateComponentSourceBase implements
     array $settings = [],
   ): array {
     $values = $this->settingsFrom($inputValues);
-    // No custom `#name`: the client's form serialization ignores it, so the
-    // value would silently never be saved.
     ['options' => $choices, 'source' => $source] = \Drupal::service(ViewFieldChoices::class)->forEntity($entity);
     if ($choices !== []) {
       if ($values[self::INPUT_FIELD] !== '' && !isset($choices[$values[self::INPUT_FIELD]])) {

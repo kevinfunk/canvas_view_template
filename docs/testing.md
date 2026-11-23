@@ -38,6 +38,26 @@ vendor/bin/phpcs --standard=web/modules/custom/canvas_view_template/phpcs.xml.di
 vendor/bin/phpstan analyze -c web/modules/custom/canvas_view_template/phpstan.neon
 ```
 
+What `phpstan-baseline.neon` holds: 39 entries, 21 in `src/` and 18 in tests.
+In `src/`:
+- Views types that differ from runtime: `ViewExecutable::$total_rows`, `$filter`,
+  `$pager` and `$display_handler`, and `ResultRow::$_entity`, are declared
+  non-nullable but can be unset.
+- Missing array shapes: `buildOptionsForm()` and `summaryTitle()` in the style
+  plugin have no declared types, and each component's
+  `getDefaultExplicitInput()` returns a shape wider than Canvas's interface.
+- `DependencySerializationTrait` does not support private or read-only
+  properties, so the access handler's are flagged.
+- Two `\Drupal` calls in `ViewTemplateField` that cannot be injected.
+- `ViewTemplateRenderer` and `ViewTemplateUninstallValidator` each have one
+  parameter or return type that PHPStan cannot narrow.
+
+In the tests the entries are mostly narrow types in Canvas and core APIs, such
+as `AccessResultInterface::getReason()` (it exists only on the forbidden
+result) and Canvas's client-model array shape. These are real gaps in typing,
+not hidden bugs, but each is a place where a stricter type could be added. A
+new finding fails the check, and fixing one means deleting its entry.
+
 The spell check reads `.cspell-project-words.txt`; add project-specific words
 there, one per line.
 

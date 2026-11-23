@@ -160,8 +160,6 @@ final class ViewTemplateSummary extends ViewTemplateComponentSourceBase {
     foreach (ViewResultSummary::tokens() as $token => $meaning) {
       $tokens[] = $token;
     }
-    // No custom `#name`: the client's form serialization ignores it, so the
-    // value would silently never be saved.
     $form[self::INPUT_FORMAT] = [
       '#type' => 'textfield',
       '#title' => $this->t('Format'),
