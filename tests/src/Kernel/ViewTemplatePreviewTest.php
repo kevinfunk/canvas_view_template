@@ -6,9 +6,7 @@ namespace Drupal\Tests\canvas_view_template\Kernel;
 
 use Drupal\canvas\Entity\Component;
 use Drupal\canvas\Render\PreviewEnvelope;
-use Drupal\canvas_view_template\Controller\ViewTemplateDuplicateController;
 use Drupal\canvas_view_template\Controller\ViewTemplateLivePreviewController;
-use Drupal\canvas_view_template\Controller\ViewTemplateUsageController;
 use Drupal\canvas_view_template\Entity\ViewTemplate;
 use Drupal\canvas_view_template\EventSubscriber\ViewTemplatePreviewSubscriber;
 use Drupal\canvas_view_template\Form\ViewTemplatePreviewForm;
@@ -20,7 +18,6 @@ use Drupal\canvas_view_template\Preview\ViewPreviewBuilder;
 use Drupal\canvas_view_template\Preview\ViewTemplateLivePreview;
 use Drupal\canvas_view_template\Preview\ViewTemplatePreviewSelection;
 use Drupal\canvas_view_template\Render\ViewConditions;
-use Drupal\canvas_view_template\ViewTemplateUsage;
 use Drupal\Core\Form\FormState;
 use Drupal\Core\Routing\RouteMatch;
 use Drupal\node\Entity\Node;
@@ -46,10 +43,7 @@ use Symfony\Component\Routing\Route;
 #[CoversClass(ViewTemplatePreviewForm::class)]
 #[CoversClass(ViewTemplatePreviewSubscriber::class)]
 #[CoversClass(ViewTemplateLivePreviewController::class)]
-#[CoversClass(ViewTemplateUsage::class)]
 #[CoversClass(ViewTemplatePreviewHooks::class)]
-#[CoversClass(ViewTemplateUsageController::class)]
-#[CoversClass(ViewTemplateDuplicateController::class)]
 #[Group('canvas_view_template')]
 final class ViewTemplatePreviewTest extends ViewTemplateKernelTestBase {
 
@@ -285,28 +279,6 @@ final class ViewTemplatePreviewTest extends ViewTemplateKernelTestBase {
   }
 
   /**
-   * Finds the displays using a template, and not the ones that don't.
-   */
-  public function testUsage(): void {
-    $usage = $this->container->get(ViewTemplateUsage::class);
-    $found = $usage->displaysUsing('preview_test');
-    self::assertSame(['preview_test_view/page_1'], \array_map(static fn (array $d): string => $d['view'] . '/' . $d['display'], $found));
-    self::assertSame('Preview test view: Page', $found[0]['label']);
-    self::assertSame([], $usage->displaysUsing('nothing_uses_this'));
-  }
-
-  /**
-   * The usage route lists them as JSON, privately.
-   */
-  public function testUsageRoute(): void {
-    $template = ViewTemplate::load('preview_test');
-    $response = ViewTemplateUsageController::create($this->container)->usage($template);
-    $data = \json_decode((string) $response->getContent(), TRUE);
-    self::assertSame(['Preview test view: Page'], \array_column($data['displays'], 'label'));
-    self::assertStringContainsString('no-store', (string) $response->headers->get('Cache-Control'));
-  }
-
-  /**
    * The route that re-renders the preview returns the live HTML, privately.
    */
   public function testLivePreviewRoute(): void {
@@ -512,73 +484,6 @@ final class ViewTemplatePreviewTest extends ViewTemplateKernelTestBase {
     self::assertStringContainsString('cvt-preview-warning', $warned);
     self::assertStringContainsString('cannot be placed inside another', $warned);
     self::assertStringContainsString('EDITOR_PLACEHOLDERS', $warned);
-  }
-
-  /**
-   * The usage route lists every template's displays at once.
-   */
-  public function testUsageOfAllTemplates(): void {
-    ViewTemplate::create(['id' => 'unused_template', 'label' => 'Unused'])->save();
-    $response = ViewTemplateUsageController::create($this->container)->all();
-    $data = \json_decode((string) $response->getContent(), TRUE);
-    self::assertSame(['preview_test', 'unused_template'], \array_keys($data['templates']));
-    self::assertSame('preview_test_view', $data['templates']['preview_test'][0]['view']);
-    self::assertSame([], $data['templates']['unused_template']);
-    self::assertStringContainsString('no-store', (string) $response->headers->get('Cache-Control'));
-  }
-
-  /**
-   * A template is copied under a new name, from its draft if it has one.
-   */
-  public function testDuplicate(): void {
-    $original = ViewTemplate::load('preview_test');
-    $original->set('description', 'The original')->save();
-    $controller = ViewTemplateDuplicateController::create($this->container);
-    $send = static fn (array $body): Request => Request::create('/', 'POST', [], [], [], [], (string) \json_encode($body));
-
-    $response = $controller->duplicate($original, $send(['id' => 'preview_copy', 'label' => ' Preview copy ']));
-    self::assertSame(201, $response->getStatusCode());
-    self::assertSame(['id' => 'preview_copy', 'label' => 'Preview copy'], \json_decode((string) $response->getContent(), TRUE));
-    $copy = ViewTemplate::load('preview_copy');
-    self::assertNotNull($copy);
-    self::assertSame('Preview copy', $copy->label());
-    self::assertSame('The original', $copy->get('description'));
-    self::assertEquals($original->getComponentTree()->getValue(), $copy->getComponentTree()->getValue());
-    self::assertNotNull(ViewTemplate::load('preview_test'));
-    self::assertSame([], $this->container->get(ViewTemplateUsage::class)->displaysUsing('preview_copy'));
-
-    $response = $controller->duplicate($original, $send(['id' => 'preview_copy', 'label' => 'Again']));
-    self::assertSame(409, $response->getStatusCode());
-    self::assertStringContainsString('already exists', (string) $response->getContent());
-
-    foreach ([['id' => 'Bad Name', 'label' => 'X'], ['id' => '1abc', 'label' => 'X'], ['id' => 'fine', 'label' => ' ']] as $body) {
-      self::assertSame(422, $controller->duplicate($original, $send($body))->getStatusCode(), (string) \json_encode($body));
-    }
-    self::assertNull(ViewTemplate::load('fine'));
-  }
-
-  /**
-   * A template that Views use cannot be deleted, by anyone, until none do.
-   */
-  public function testTemplateInUseCannotBeDeleted(): void {
-    $admin = $this->createUser(['administer view templates']);
-    ViewTemplate::create(['id' => 'unused_template', 'label' => 'Unused'])->save();
-    $used = ViewTemplate::load('preview_test');
-    $unused = ViewTemplate::load('unused_template');
-
-    $result = $used->access('delete', $admin, TRUE);
-    self::assertTrue($result->isForbidden());
-    self::assertStringContainsString('Preview test view: Page', (string) $result->getReason());
-    self::assertTrue($unused->access('delete', $admin));
-    self::assertTrue($used->access('update', $admin));
-
-    $view = View::load('preview_test_view');
-    $displays = $view->get('display');
-    $displays['default']['display_options']['style'] = ['type' => 'default', 'options' => []];
-    $view->set('display', $displays)->save();
-    $this->container->get('kernel')->rebuildContainer();
-    $used = ViewTemplate::load('preview_test');
-    self::assertTrue($used->access('delete', $admin));
   }
 
   /**

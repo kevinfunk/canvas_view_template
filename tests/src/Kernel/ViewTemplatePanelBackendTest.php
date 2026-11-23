@@ -214,6 +214,67 @@ final class ViewTemplatePanelBackendTest extends ViewTemplateKernelTestBase {
   }
 
   /**
+   * A copy keeps the description and tree, and the new name is checked.
+   */
+  public function testDuplicateChecksTheNewName(): void {
+    $original = ViewTemplate::load('used');
+    $original->set('description', 'The original')->save();
+    $controller = ViewTemplateDuplicateController::create($this->container);
+    $send = static fn (array $body): Request => Request::create('/', 'POST', [], [], [], [], (string) \json_encode($body));
+
+    $response = $controller->duplicate($original, $send(['id' => 'used_copy', 'label' => ' Used copy ']));
+    self::assertSame(201, $response->getStatusCode());
+    self::assertSame(['id' => 'used_copy', 'label' => 'Used copy'], \json_decode((string) $response->getContent(), TRUE));
+    $copy = ViewTemplate::load('used_copy');
+    self::assertNotNull($copy);
+    self::assertSame('Used copy', $copy->label());
+    self::assertSame('The original', $copy->get('description'));
+    self::assertEquals($original->getComponentTree()->getValue(), $copy->getComponentTree()->getValue());
+    self::assertNotNull(ViewTemplate::load('used'));
+    // The copy starts unused: Views keep the original until switched.
+    self::assertSame([], $this->container->get(ViewTemplateUsage::class)->displaysUsing('used_copy'));
+
+    $response = $controller->duplicate($original, $send(['id' => 'used_copy', 'label' => 'Again']));
+    self::assertSame(409, $response->getStatusCode());
+    self::assertStringContainsString('already exists', (string) $response->getContent());
+
+    foreach ([['id' => 'Bad Name', 'label' => 'X'], ['id' => '1abc', 'label' => 'X'], ['id' => 'fine', 'label' => ' ']] as $body) {
+      self::assertSame(422, $controller->duplicate($original, $send($body))->getStatusCode(), (string) \json_encode($body));
+    }
+    self::assertNull(ViewTemplate::load('fine'));
+  }
+
+  /**
+   * The usage routes answer privately, so a stale list is never cached.
+   */
+  public function testUsageRoutesAreNotCached(): void {
+    $controller = ViewTemplateUsageController::create($this->container);
+
+    $response = $controller->usage(ViewTemplate::load('used'));
+    $data = \json_decode((string) $response->getContent(), TRUE);
+    self::assertSame(['First view: page_1', 'Second view: page_1'], \array_column($data['displays'], 'label'));
+    self::assertStringContainsString('no-store', (string) $response->headers->get('Cache-Control'));
+    self::assertStringContainsString('no-store', (string) $controller->all()->headers->get('Cache-Control'));
+  }
+
+  /**
+   * The delete lock lifts once no display uses the template.
+   */
+  public function testDeleteLockLiftsWhenNoDisplayUsesTheTemplate(): void {
+    $admin = $this->createUser([ViewTemplate::ADMIN_PERMISSION]);
+    $handler = $this->container->get('entity_type.manager')->getAccessControlHandler('canvas_view_template');
+    $used = ViewTemplate::load('used');
+    self::assertTrue($used->access('delete', $admin, TRUE)->isForbidden());
+    // Editing is never locked.
+    self::assertTrue($used->access('update', $admin));
+
+    View::load('first_view')->delete();
+    View::load('second_view')->delete();
+    $handler->resetCache();
+    self::assertTrue(ViewTemplate::load('used')->access('delete', $admin));
+  }
+
+  /**
    * Saves an unpublished draft of a template, as the editor does.
    */
   private function saveDraft(ViewTemplate $template, array $tree, ?string $description = NULL): void {
