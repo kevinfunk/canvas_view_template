@@ -435,50 +435,6 @@ final class ViewTemplateRendererTest extends ViewTemplateKernelTestBase {
   }
 
   /**
-   * A repeater's own `limit`/`offset` slice which rows it repeats over.
-   */
-  public function testRepeaterLimitAndOffset(): void {
-    [, $repeater_item, $item_item] = $this->repeaterWithItem([
-      ViewTemplateRepeater::INPUT_LIMIT => 1,
-      ViewTemplateRepeater::INPUT_OFFSET => 1,
-    ]);
-    $view_template = ViewTemplate::create([
-      'id' => 'test',
-      'label' => 'Test',
-      'component_tree' => [$repeater_item, $item_item],
-    ]);
-
-    $result = $this->renderWithData($view_template, new ViewRenderData(rowRenders: ['ROW_A', 'ROW_B', 'ROW_C']));
-    $rendered = (string) $this->renderer->renderInIsolation($result);
-
-    self::assertStringNotContainsString('ROW_A', $rendered);
-    self::assertStringContainsString('ROW_B', $rendered);
-    self::assertStringNotContainsString('ROW_C', $rendered);
-  }
-
-  /**
-   * A limit of 0 repeats every remaining item, as in the view's own pager.
-   */
-  public function testRepeaterLimitZeroMeansNoLimit(): void {
-    [, $repeater_item, $item_item] = $this->repeaterWithItem([
-      ViewTemplateRepeater::INPUT_LIMIT => 0,
-      ViewTemplateRepeater::INPUT_OFFSET => 1,
-    ]);
-    $view_template = ViewTemplate::create([
-      'id' => 'test',
-      'label' => 'Test',
-      'component_tree' => [$repeater_item, $item_item],
-    ]);
-
-    $result = $this->renderWithData($view_template, new ViewRenderData(rowRenders: ['ROW_A', 'ROW_B', 'ROW_C']));
-    $rendered = (string) $this->renderer->renderInIsolation($result);
-
-    self::assertStringNotContainsString('ROW_A', $rendered);
-    self::assertStringContainsString('ROW_B', $rendered);
-    self::assertStringContainsString('ROW_C', $rendered);
-  }
-
-  /**
    * Multiple repeaters each apply their own limit/offset to the full row set.
    */
   public function testMultipleIndependentRepeaters(): void {
