@@ -25,6 +25,18 @@ variables:
   OPT_IN_TEST_CURRENT: '1'
   OPT_IN_TEST_NEXT_MINOR: '1'
   OPT_IN_TEST_MAX_PHP: '1'
+  # Timing and memory tests (group canvas_view_template_slow) depend on how busy
+  # a shared runner is, so the blocking jobs skip them. The "phpunit slow" job
+  # below runs them without blocking the pipeline.
+  _PHPUNIT_EXTRA: '--exclude-group=canvas_view_template_slow'
+
+# Runs only the timing and memory tests, on current core. A failure here shows
+# as a warning; read the numbers before treating it as a regression.
+phpunit slow:
+  extends: phpunit (current)
+  allow_failure: true
+  variables:
+    _PHPUNIT_EXTRA: '--group=canvas_view_template_slow'
 
 # The Node tests for the browser scripts need no Drupal, only Node 24 (the
 # panel's ES modules load as .js, which older Node versions refuse). They are

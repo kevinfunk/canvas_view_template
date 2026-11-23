@@ -34,6 +34,7 @@ use PHPUnit\Framework\Attributes\Group;
  * than the rows.
  */
 #[Group('canvas_view_template')]
+#[Group('canvas_view_template_slow')]
 final class ViewTemplateRenderCostTest extends ViewTemplateKernelTestBase {
 
   use UserCreationTrait;

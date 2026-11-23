@@ -482,3 +482,10 @@ Node 24 and fails the pipeline. `.eslintrc.json` tells the templates' eslint job
 that `extension/*.js` are ES modules and `tests/js` runs in Node; without it
 core's config reads them as scripts and reports a parse error on `import`.
 `CanvasCopiesTest` compares against the Canvas that `composer` installs there.
+
+The timing and memory tests (`ViewTemplateRenderCostTest`,
+`ViewTemplateScaleTest`, group `canvas_view_template_slow`) depend on how busy
+the runner is. The blocking PHPUnit jobs skip them with `_PHPUNIT_EXTRA`, and
+the `phpunit slow` job runs them on current core with `allow_failure`. Locally
+they run with the rest of the suite. This setup has not yet run on GitLab; check
+that the job name in `extends:` matches the template's.

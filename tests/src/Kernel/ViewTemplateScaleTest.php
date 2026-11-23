@@ -29,6 +29,7 @@ use PHPUnit\Framework\Attributes\Group;
  * but a scan repeated for every View does.
  */
 #[Group('canvas_view_template')]
+#[Group('canvas_view_template_slow')]
 final class ViewTemplateScaleTest extends ViewTemplateKernelTestBase {
 
   use UserCreationTrait;
