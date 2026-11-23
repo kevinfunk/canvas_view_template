@@ -57,20 +57,21 @@ This module requires the following modules:
 
 ### Component config and Canvas's schema
 
-The components this module ships use a component source that Canvas's config
-schema does not list yet. The schema's list of allowed sources is only lifted by
-Canvas's development module `canvas_dev_mode`, until Canvas makes component
-sources a public API ([drupal.org/i/3520484](https://www.drupal.org/i/3520484)).
+Canvas's config schema for `canvas.component.*` lists the component sources it
+allows, and will not make that a public API until Canvas does
+([drupal.org/i/3520484](https://www.drupal.org/i/3520484)). This module adds
+its own nine sources to that list with `hook_config_schema_info_alter`
+(`src/Hook/ViewTemplateSchemaHooks.php`), the same hook Canvas's
+`canvas_dev_mode` uses to remove the whole list. So the 16 shipped components
+pass anything that validates config (Config Inspector, a recipe, strict schema
+checks) without a development module, and any other source is still refused.
 
-On a normal site that has no effect: config saves are not validated, and the
-components install, render and can be edited. Anything that validates config
-(strict schema checks in tests, the Config Inspector module, a recipe that
-validates its config) reports `source` as an invalid choice on all 16
-`canvas.component.canvas_view_template_*` components, and nothing else. If that
-blocks you, skip validation for those components, or enable `canvas_dev_mode`
-on that environment only: it is a development module, not for production.
-`ViewTemplateWithoutDevModeTest` records this behaviour, so a Canvas update that
-changes it fails a test.
+`canvas_dev_mode` is not needed, and is not for production.
+
+If a Canvas update changes the schema so the list is no longer found, the hook
+does nothing and validators report `source` as invalid again.
+`ViewTemplateWithoutDevModeTest` installs the module under strict schema
+checking without `canvas_dev_mode`, so such an update fails a test first.
 
 
 ## Recommended modules
@@ -323,7 +324,7 @@ no test.
 | Canvas symbol | Used in | What breaks | Caught by |
 | --- | --- | --- | --- |
 | `ComponentSourceBase` (`@internal`), `ComponentSourceInterface`, `ComponentSourceWithSlotsInterface`, the `ComponentSource` attribute | `src/Plugin/Canvas/ComponentSource/*`, base class `ViewTemplateComponentSourceBase` | Fatal errors when a method signature changes; components stop loading | `ViewTemplateComponentContractTest`, and most kernel tests (a fatal fails the suite) |
-| `canvas.component.*` schema, `source` choice and `canvas_dev_mode` | `config/install/canvas.component.*.yml` | Config validation reports all 16 components as invalid (see Requirements); a Canvas that validates on save or import could refuse them | `ViewTemplateWithoutDevModeTest`; `ViewTemplateConfigDriftTest` with dev mode |
+| `canvas.component.*` schema (its list of allowed `source` plugin IDs) and `hook_config_schema_info_alter` | `src/Hook/ViewTemplateSchemaHooks.php`, `config/install/canvas.component.*.yml` | Config validation reports all 16 components as invalid, because the list is no longer found and nothing is added to it | `ViewTemplateWithoutDevModeTest`, `ViewTemplateSchemaHooksTest`, `ViewTemplateConfigDriftTest` |
 | Component version hash (`generateVersionHash()`), `Component::loadVersion()`, `getActiveVersion()` | `active_version` in the shipped config, `ViewTemplateComponentInstanceForm` | Components fail to load or edit; stored hashes go stale | `ViewTemplateComponentContractTest`, `ViewTemplateConfigDriftTest`, `ViewTemplateTest::testShippedComponentVersionHashesAreCurrent` |
 | `Folder` config entity, created by `Component::postSave()` | `canvas_view_template.install`, `ViewTemplatePlaceholder::LIBRARY_FOLDER_NAME` | Components appear outside the "View template" folder, or two folders exist | `ViewTemplateConfigDriftTest` (folder contents); config sync between environments: none |
 | `ComponentTreeConfigEntityBase` (`@internal`), `CanvasHttpApiEligibleConfigEntityInterface`, `ClientServerConversionTrait` (`@internal`), `ClientSideRepresentation`, `EmptyTargetEntityProviderInterface`, `ComponentTreeItemList` | `src/Entity/ViewTemplate.php`, `ViewTemplateTreeItems` | Fatals; the editor cannot load, save or validate templates | `ViewTemplateTest`, `ViewTemplateTreeFuzzTest`; Canvas's HTTP config API (PATCH, POST): none |

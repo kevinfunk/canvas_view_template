@@ -4,36 +4,30 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\canvas_view_template\Kernel;
 
+use Drupal\canvas\ComponentSource\ComponentSourceManager;
 use Drupal\canvas\Entity\Component;
 use Drupal\canvas\Entity\Folder;
 use Drupal\canvas_view_template\Entity\ViewTemplate;
+use Drupal\canvas_view_template\Hook\ViewTemplateSchemaHooks;
 use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplatePlaceholder;
 use Drupal\canvas_view_template\Render\ViewRenderData;
 use Drupal\canvas_view_template\Render\ViewTemplateRenderer;
 use Drupal\Core\Config\TypedConfigManagerInterface;
 use PHPUnit\Framework\Attributes\Group;
+use Symfony\Component\Validator\Constraints\Choice;
 use Drupal\Tests\canvas\Kernel\CanvasKernelTestBase;
 
 /**
  * Checks the module on a site without `canvas_dev_mode`, as production runs.
  *
  * Canvas's `canvas.component.*` schema only allows its own component source
- * plugin IDs, unless `canvas_dev_mode` lifts that (drupal.org/i/3520484). Every
- * other test here enables dev mode, so this one records what real sites get.
- * If a Canvas update changes these results, the README's "Coupling to Canvas"
- * needs revisiting.
+ * plugin IDs (drupal.org/i/3520484). This module adds its own to that list
+ * (ViewTemplateSchemaHooks), so its components validate without dev mode,
+ * which every other test here enables. If a Canvas update changes the schema,
+ * this fails, and the README's "Coupling to Canvas" needs revisiting.
  */
 #[Group('canvas_view_template')]
 final class ViewTemplateWithoutDevModeTest extends CanvasKernelTestBase {
-
-  /**
-   * {@inheritdoc}
-   *
-   * Strict schema checking would reject the config at install, which is the
-   * behaviour under test, so it is off here.
-   */
-  // phpcs:ignore DrupalPractice.Objects.StrictSchemaDisabled.StrictConfigSchema
-  protected $strictConfigSchema = FALSE;
 
   /**
    * {@inheritdoc}
@@ -91,30 +85,58 @@ final class ViewTemplateWithoutDevModeTest extends CanvasKernelTestBase {
   }
 
   /**
-   * Schema validation flags only the `source` choice, on every component.
-   *
-   * This is the documented gap: nothing else is wrong with the shipped config.
+   * The shipped components pass schema validation, with dev mode absent.
    */
-  public function testSchemaViolationsAreOnlyTheSourceChoice(): void {
+  public function testShippedComponentsPassSchemaValidation(): void {
     $typed = $this->container->get(TypedConfigManagerInterface::class);
-    $found = [];
+    $checked = 0;
     foreach (Component::loadMultiple() as $id => $component) {
       if (!\str_starts_with($id, 'canvas_view_template')) {
         continue;
       }
       $name = 'canvas.component.' . $id;
       $violations = $typed->createFromNameAndData($name, $this->config($name)->get())->validate();
+      $found = [];
       foreach ($violations as $violation) {
-        $found[$id][] = $violation->getPropertyPath();
+        $found[] = $violation->getPropertyPath() . ': ' . $violation->getMessage();
+      }
+      self::assertSame([], $found, $id);
+      $checked++;
+    }
+    self::assertSame(16, $checked);
+  }
+
+  /**
+   * Other sources are still refused: only this module's were added.
+   */
+  public function testOtherSourcesAreStillRefused(): void {
+    $name = 'canvas.component.canvas_view_template_title.view_title';
+    $data = $this->config($name)->get();
+    $data['source'] = 'not_a_real_source';
+    $violations = $this->container->get(TypedConfigManagerInterface::class)->createFromNameAndData($name, $data)->validate();
+    $refused = [];
+    foreach ($violations as $violation) {
+      if ($violation->getPropertyPath() === 'source' && $violation->getConstraint() instanceof Choice) {
+        $refused[] = $violation->getMessage();
       }
     }
-    $expected = \array_fill_keys(
-      \array_filter(\array_keys(Component::loadMultiple()), static fn (string $id): bool => \str_starts_with($id, 'canvas_view_template')),
-      ['source'],
+    self::assertNotSame([], $refused, 'The list of allowed sources was removed, not extended.');
+  }
+
+  /**
+   * The sources the hook lists are the ones the plugin manager finds.
+   *
+   * A source added without being listed would fail validation on a real site.
+   */
+  public function testEveryProvidedSourceIsListed(): void {
+    $found = \array_filter(
+      \array_keys($this->container->get(ComponentSourceManager::class)->getDefinitions()),
+      static fn (string $id): bool => \str_starts_with($id, 'canvas_view_template'),
     );
-    \ksort($found);
-    \ksort($expected);
-    self::assertSame($expected, $found);
+    $listed = ViewTemplateSchemaHooks::sourcePluginIds();
+    \sort($found);
+    \sort($listed);
+    self::assertSame($found, $listed);
   }
 
 }

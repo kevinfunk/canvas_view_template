@@ -44,7 +44,10 @@ node web/modules/custom/canvas_view_template/tests/js/panel-smoke.test.mjs
   English. They feed the version hash; translating them would make the hash
   depend on the interface language.
 - Do not make the module depend on `canvas_dev_mode`. It is a development
-  module; `ViewTemplateWithoutDevModeTest` records what happens without it.
+  module. `ViewTemplateSchemaHooks` adds this module's sources to Canvas's
+  schema list instead, and `ViewTemplateWithoutDevModeTest` checks the module
+  without it, under strict schema checking. A new component source needs its ID
+  in that hook; a test checks it.
 - Rename with care. The entity type id is `canvas_view_template`, the config
   prefix is `view_template`, the route parameter is `{view_template}`, and the
   style plugin is `canvas_view_template`. They look alike and are different
