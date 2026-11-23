@@ -24,7 +24,7 @@ use Drupal\Tests\canvas\Kernel\CanvasKernelTestBase;
  * plugin IDs (drupal.org/i/3520484). This module adds its own to that list
  * (ViewTemplateSchemaHooks), so its components validate without dev mode,
  * which every other test here enables. If a Canvas update changes the schema,
- * this fails, and the README's "Coupling to Canvas" needs revisiting.
+ * this fails, and docs/canvas-coupling.md needs revisiting.
  */
 #[Group('canvas_view_template')]
 final class ViewTemplateWithoutDevModeTest extends CanvasKernelTestBase {

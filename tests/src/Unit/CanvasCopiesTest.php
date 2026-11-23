@@ -43,7 +43,7 @@ final class CanvasCopiesTest extends TestCase {
     self::assertSame(
       self::FORM_FINGERPRINT,
       self::formFingerprint(),
-      \sprintf('Canvas changed ComponentInstanceForm::buildForm() (last compared against Canvas %s). Compare it with src/Form/ViewTemplateComponentInstanceForm.php, update that if needed, then update FORM_FINGERPRINT and COMPARED_AGAINST here, and the version in that class and in the README.', self::COMPARED_AGAINST),
+      \sprintf('Canvas changed ComponentInstanceForm::buildForm() (last compared against Canvas %s). Compare it with src/Form/ViewTemplateComponentInstanceForm.php, update that if needed, then update FORM_FINGERPRINT and COMPARED_AGAINST here, and the version in that class and in docs/canvas-coupling.md.', self::COMPARED_AGAINST),
     );
   }
 
@@ -58,7 +58,7 @@ final class CanvasCopiesTest extends TestCase {
     self::assertSame(
       self::MENU_CSS_FINGERPRINT,
       self::menuCssFingerprint((string) \file_get_contents($css)),
-      \sprintf('The .rt-BaseMenu* rules in Canvas changed (last compared against Canvas %s). Compare them with the numbers in extension/dialog.css, update that if needed, then update MENU_CSS_FINGERPRINT and COMPARED_AGAINST here, and the version in dialog.css, app.css and the README.', self::COMPARED_AGAINST),
+      \sprintf('The .rt-BaseMenu* rules in Canvas changed (last compared against Canvas %s). Compare them with the numbers in extension/dialog.css, update that if needed, then update MENU_CSS_FINGERPRINT and COMPARED_AGAINST here, and the version in dialog.css, app.css and docs/canvas-coupling.md.', self::COMPARED_AGAINST),
     );
   }
 

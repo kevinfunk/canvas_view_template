@@ -16,7 +16,7 @@ copy or the menu CSS.
 ## 1. Before the user updates
 
 - Read the release notes (`https://www.drupal.org/project/canvas/releases/<version>`)
-  and match every item against the coupling table in the README. List what
+  and match every item against the coupling table in `docs/canvas-coupling.md`. List what
   could be affected. Release notes are often thin, so treat silence as "not
   known", not "safe".
 - Offer a snapshot: `ddev snapshot --name before-canvas-<version>`.
@@ -74,7 +74,7 @@ tolerance, so a pass there confirms the sizes but not the colors.
 - `ViewTemplateWithoutDevModeTest` passes: the schema's `source` choice still
   reports exactly the 16 components and nothing else. If Canvas lifted that
   constraint (drupal.org issue 3520484), the test fails with a clear reason:
-  update it and the README's "Component config and Canvas's schema" section.
+  update it and the "Component config and Canvas's schema" section of `docs/canvas-coupling.md`.
 - Look at the editor by hand: open a view template, add a "View repeater",
   open the View templates panel, open the full-width preview and use the pager
   and an exposed filter. Release notes that mention the preview, iframe, router
@@ -84,9 +84,9 @@ tolerance, so a pass there confirms the sizes but not the colors.
 
 Only for what was actually checked. Replace the old version in:
 
-- `README.md`: the Requirements "tested with" line, the panel paragraph that
-  says the CSS was "last compared against", and the form paragraph that says
-  the same of the form copy.
+- `README.md`: the Requirements Canvas version.
+- `docs/canvas-coupling.md`: the panel paragraph that says the CSS was "last
+  compared against", and the bullet that says the same of the form copy.
 - `extension/app.css` (line 4) and `extension/dialog.css` (two places).
 - `src/Form/ViewTemplateComponentInstanceForm.php` (class docblock).
 - The coupling table rows, if a symbol was added, removed or renamed.

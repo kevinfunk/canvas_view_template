@@ -3,7 +3,8 @@
 A Drupal module that renders Views displays through Canvas "view templates".
 It has its own config entity (`canvas_view_template`) and 16 Canvas library
 components whose sources are not discovered (`discovery: FALSE`). The README
-explains the design; this file holds what to know before changing code.
+covers use and installation, and `docs/` holds the design notes. This file
+holds what to know before changing code.
 
 The module lives at `web/modules/custom/canvas_view_template` in a DDEV project.
 Run every command below from the project root (`drupal-testing`).
@@ -56,7 +57,7 @@ node web/modules/custom/canvas_view_template/tests/js/panel-smoke.test.mjs
   That means "compare the copy", not "broken". Compare, then update the
   fingerprint and version in the test.
 - Canvas's `@internal` classes are used on purpose; see the coupling table in
-  the README. A new use of a Canvas class or route belongs in that table, with
+  `docs/canvas-coupling.md`. A new use of a Canvas class or route belongs in that table, with
   the test that would catch a break.
 
 ## Conventions
@@ -90,10 +91,10 @@ checks it.
 
 ## Changing a component
 
-See "Changing a component" in the README. In short: the hash changes whenever
+See `docs/changing-a-component.md`. In short: the hash changes whenever
 slot definitions or the settings schema change; put the new hash in
 `config/install`; sites that already have the module need an update hook that
-creates the new version and moves placements, using `ComponentUpdater` (README
+creates the new version and moves placements, using `ComponentUpdater` (the doc
 has an example). Update hooks are numbered from 10001. The drift and contract
 tests fail when any of these is out of step.
 

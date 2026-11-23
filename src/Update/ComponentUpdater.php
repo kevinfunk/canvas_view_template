@@ -26,7 +26,7 @@ use Symfony\Component\Yaml\Yaml;
  *   ::movePlacements().
  * Both are safe to run twice.
  *
- * @see README.md, "Changing a component"
+ * @see docs/changing-a-component.md
  */
 final class ComponentUpdater {
 

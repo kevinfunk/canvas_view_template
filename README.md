@@ -1,5 +1,7 @@
 # Canvas View Template
 
+Build the layout of a Drupal Views display visually, in Canvas's editor.
+
 ## Table of contents
 
 - Introduction
@@ -8,13 +10,9 @@
 - Installation
 - Configuration
 - Uninstalling
-- How it works
-- Keeping the panel in step with Canvas
-- Coupling to Canvas
+- Troubleshooting
 - Known limitations
-- Changing a component
-- Testing
-
+- More documentation
 
 ## Introduction
 
@@ -42,6 +40,8 @@ module adds:
 - A `Page template` option alongside it, to override which Canvas page
   template wraps that specific display when it renders as a page.
 
+How each component behaves, and how to combine them, is in
+[Using the components](docs/using-components.md).
 
 ## Requirements
 
@@ -50,29 +50,15 @@ This module requires the following modules:
 - [Views](https://www.drupal.org/docs/8/core/modules/views) (Drupal core)
 - [Canvas](https://www.drupal.org/project/canvas) 1.13.x, with Drupal 11.4.
   The info file allows only `>=1.13, <1.14`, because this module uses Canvas
-  internals that have no stability promise yet (see "Coupling to Canvas").
+  internals that have no stability promise yet (see
+  [Coupling to Canvas](docs/canvas-coupling.md)).
   The constraint matches releases only: a git checkout or `1.x-dev` of Canvas
   does not satisfy it, so to test against one, change the constraint in a
   local copy of `canvas_view_template.info.yml`.
 
-### Component config and Canvas's schema
-
-Canvas's config schema for `canvas.component.*` lists the component sources it
-allows, and will not make that a public API until Canvas does
-([drupal.org/i/3520484](https://www.drupal.org/i/3520484)). This module adds
-its own nine sources to that list with `hook_config_schema_info_alter`
-(`src/Hook/ViewTemplateSchemaHooks.php`), the same hook Canvas's
-`canvas_dev_mode` uses to remove the whole list. So the 16 shipped components
-pass anything that validates config (Config Inspector, a recipe, strict schema
-checks) without a development module, and any other source is still refused.
-
-`canvas_dev_mode` is not needed, and is not for production.
-
-If a Canvas update changes the schema so the list is no longer found, the hook
-does nothing and validators report `source` as invalid again.
-`ViewTemplateWithoutDevModeTest` installs the module under strict schema
-checking without `canvas_dev_mode`, so such an update fails a test first.
-
+`canvas_dev_mode` is not needed, and is not for production. The module's
+components pass config validation without it (see
+[Component config and Canvas's schema](docs/canvas-coupling.md#component-config-and-canvass-schema)).
 
 ## Recommended modules
 
@@ -83,7 +69,6 @@ checking without `canvas_dev_mode`, so such an update fails a test first.
   View Pager Plugin's "Page Control" pager lets the first page fetch a
   different number of rows than every page after it, so nothing is ever
   dropped or duplicated at the page boundary.
-
 
 ## Installation
 
@@ -119,7 +104,6 @@ The module's classes are `final` and it has no hooks, events or plugin types of
 its own for other modules to use. Customize with your own Canvas components, or
 with a theme override of `views-view--canvas-view-template.html.twig`.
 
-
 ## Configuration
 
 1. Enable the module.
@@ -134,6 +118,8 @@ with a theme override of `views-view--canvas-view-template.html.twig`.
    **Format**, choose **Canvas view template**. Select the view
    template you built, and optionally a **Page template** override.
 
+The components, conditions, previews and the View templates panel are described
+in [Using the components](docs/using-components.md).
 
 ## Uninstalling
 
@@ -144,203 +130,26 @@ displays. Switch their **Format** to another style first; then uninstalling
 deletes the view templates and this module's components, along with the empty
 "View template" library folder.
 
+## Troubleshooting
 
-## How it works
-
-`View rows` / `View exposed filters` / `View pager` are placeholders:
-when the View renders, this module injects the View's already-rendered
-rows, exposed filter form, and pager into wherever each placeholder is
-placed in the tree.
-
-`View repeater` is different: it re-renders its own contents once per
-item (one result row of the View), feeding a nested `View item` a
-different item on each repetition. A
-view template can contain more than one `View repeater` — each is
-resolved independently, so a "2 featured cards, then the rest as a
-list" layout is just two repeaters with different `limit`/`offset`
-settings. A `View repeater` can't be placed inside another one (at any depth,
-even with a container or `View condition` in between): the inner one would
-have no items of its own to repeat. The template can't be published until it is
-moved beside the first one, or `View item` and `View field` are used inside
-the first one instead. Components that show the whole view's output (`View
-rows`, `View exposed filters`, `View pager`, `View header`, `View footer`,
-`View more link`, `View attachments`, `View no results`, `View title`, `View
-result summary` and `View feed icons`) can't be placed inside a repeater
-either: they would show the whole view on each item, or nothing. Place them
-beside it. `View item`, `View field`, `View condition`, `View item link` and
-ordinary Canvas components are fine inside.
-
-**Rows or a repeater?** `View rows` shows the items exactly as the view's
-own Format renders them: a table, a list, a grid, grouped rows, or a style
-another module adds, along with the view's "no results" text. It is the
-quick start, and one component is all a template needs. `View repeater`
-lets you lay out each item yourself, with `View item` (the whole item as the
-view renders it) or `View field` (one field) inside it. The two can be
-combined, for example a repeater of featured items above `View rows`.
-
-**Conditions.** `View condition` is a container, like `View no results`, that
-shows what you put in it only when a condition is true, and leaves nothing
-behind (not even a wrapper) when it is not. Choose the condition in **Show
-when**: the view has results, the results have more than one page, it is the
-first page, it is not the first page, exposed filters are applied (only what a
-visitor submitted counts, not a filter's default), or the view has a header,
-footer, "more" link, attachments or a feed. That last group is for keeping a
-heading or divider from showing next to something that is empty, for example a
-"More from this section" title that only appears when the "more" link does.
-Conditions also work inside a `View repeater`. To react to *no* results, use
-`View no results`; to repeat on particular pages, use the repeater's own page
-condition.
-
-**Linking a whole item.** `View item link` is a container, like `View condition`:
-whatever you put inside links to the current item's page. Inside a `View
-repeater` each repeated item links to its own page; elsewhere it links to the
-first item. Its **Open in** setting is the same tab or a new one. An item
-with no page of its own, or one the visitor may not view, is shown without a
-link, as are media items whose page is only their edit form (when standalone
-media URLs are off). Links use the visitor's language version of the item.
-HTML does not allow a link inside a link, so put content without links of its
-own inside (for a title that is a link, use `View field` outside the wrapper,
-or the wrapper alone). The module does not provide card or teaser layouts:
-build those from Canvas's components, with `View repeater`, `View item`,
-`View field` and `View item link` supplying the view's data.
-
-**Everything else Views builds.** A template shows what you place in it.
-`View header`, `View footer` and `View title` put those pieces exactly where
-you want them, and a view's header and footer appear nowhere else. A view
-only has them if you add them in its Header and Footer settings. The same
-goes for `View more link`, the view's "more" link (for example "More
-articles"). The view has to have its link turned on (in the view's Pager
-settings, "Create more link"), or there is nothing to show. `View attachments`
-shows the view's Attachment displays, the ones attached before the main
-display first and then those attached after it. Add an Attachment display to
-the view and attach it to this display, or there is nothing to show. `View feed
-icons` shows the feed icon of a Feed display attached to this display, or
-nothing if there is none. Its **Label** setting (Visible or Hidden) can hide the feed's title next
-to the icon (it stays available to screen readers); that only applies in
-themes that mark the title up as a label, such as Olivero. The view's
-title is never printed inside a view by Views, so it only appears where
-`View title` is placed, as a heading: its **Element** setting picks the
-level (h1 to h6, h2 by default, since on a page display the page's own
-title is usually the h1) or plain text with no element. The view is also wrapped in the same element as
-Views' own template, which Views' AJAX (pagers, exposed filters, "load
-more") and contextual links rely on.
-
-**No results.** `View no results` is a container: drop any components into it
-(a heading, some text, a button) and they appear only when the view has no
-results; with results it renders nothing. If you place it but drop nothing
-in, it shows the "no results" content configured in the Views UI. Without a
-`View no results`, `View rows` shows that Views content in place of the rows.
-
-**Single fields.** `View item` shows a whole item as the view renders it. To
-design an item yourself, put `View field` components inside the repeater
-instead (one per field, in a Row, Column or Container) and each repeated item
-shows its own value. A `View field` has the field to show, the element that
-wraps it (a heading level, paragraph, span, div or none) and whether to show
-the field's label. The view's own formatter does the output, so an image field
-is an image. It needs a view whose Format uses the **Fields** row style, as
-only those have individual fields, and it shows nothing when the field is
-empty. Choosing a view under Page data, Preview with view, lets you pick the
-field from a list. Outside a repeater it shows the first item's value.
-
-**Result summary.** `View result summary` shows a line such as "Displaying 1
-- 10 of 54". Its **Format** is the text, using the same tokens as the Views
-"Result summary" area (`@start`, `@end`, `@total`, `@label`, `@per_page`,
-`@current_page`, `@current_record_count` and `@page_count`), and **Element**
-is what wraps it. It shows nothing when the view has no results.
-
-**Card grids** need no setting: the repeater adds no markup of its own,
-so each repeated item becomes a direct child of whatever holds the
-repeater. Put the repeater in a Row and a Column (span 4 for three
-across) in its slot, and the Row's gap and the Column's span control the
-grid.
-
-A `View repeater`'s **page condition** ("Show on") gates the whole
-repeater on or off by pager page number, independent of its
-limit/offset — this is for layouts that need genuinely different
-behavior across pagination (e.g. featured content that should only ever
-appear on page 1), not just a different slice of the same page's items.
-
-
-**Previewing with real content.** In the editor's **Page data** panel,
-**Preview with view** picks a View display. The full-width preview (the eye
-toggle) then renders the template with that view's real content, wrapped in
-that display's page template, and its exposed filters and pager work in
-place. Editing keeps the placeholders so components stay selectable. The
-choice is per user and is not saved on the template. The select lists the
-displays that use the template first and starts on one of them, and the
-full-width preview says so when no view is chosen. The preview loads only
-the stylesheets and scripts its new content needs and applies new
-`drupalSettings`. It re-fetches on filter submits, including Views with AJAX
-turned on, and on pager and sort links. Other links in it are left to Canvas.
-
-**The View templates panel.** Creating, editing, duplicating and deleting
-templates there needs the `administer view templates` permission. Each row shows which Views use the template
-("Used by Articles: Page and 2 more"), or "Not used". The row's menu has
-**Duplicate**, which copies a template under a new label and machine name and
-opens the copy. The copy starts from what the editor shows, including changes
-that are not published yet, and starts unused: Views keep using the original
-until you choose the copy in their Format settings. A copy whose unpublished
-changes are invalid (for example two `View rows`) is refused with the reason.
-Rows show "Usage unknown" when the view usage could not be loaded.
-
-**Deleting a template.** A template that a View display uses cannot be
-deleted. The View templates panel explains which displays use it and asks you
-to choose another template in their Format settings first, and Canvas's API
-refuses the deletion too (403, with the reason shown only to users who
-hold the `administer view templates` permission). The lock covers deletes that check access (the
-panel and Canvas's API); a config import or code calling `delete()` is not
-stopped. The lock is a check on the displays' Format
-settings, not a configuration dependency: a View does not depend on its view
-template in configuration, because Drupal would then delete the whole View
-along with the template. A template that is disabled still leaves the View
-rendering without it.
-
-
-## Keeping the panel in step with Canvas
-
-The View templates panel is plain JavaScript and CSS in `extension/`, styled to
-match Canvas's own panels instead of bundling Radix Themes. Its sizes, colors
-and the row menu's hover were taken from Canvas's code and compiled stylesheet
-(its menus are the Radix Themes dropdown at the default size, accent blue), and
-were last compared against Canvas 1.13.0. After a Canvas update, compare the
-values in `extension/dialog.css` and the top of `extension/app.css` with the
-`rt-BaseMenu*` rules in Canvas's compiled stylesheet (`ui/dist/assets/index.css`
-in the Canvas module) and with `ui/src/components/UnifiedMenu.tsx`. The
-browser tests check the menu's measured sizes, so a drift in this module's own
-values shows up there. A change in Canvas itself shows up in
-`CanvasCopiesTest`, which pins a fingerprint of the `.rt-BaseMenu*` rules (it is
-skipped when Canvas's `ui/dist` is not built). It also pins one of
-`ComponentInstanceForm::buildForm()`. When it fails, compare the copy with
-Canvas, change the copy if needed, then put the new fingerprint and Canvas
-version in the test.
-
-## Coupling to Canvas
-
-Canvas has no stable public API for what this module does, so it uses internals
-and a few routes by name. A Canvas update can break any row below. The last
-column names the test that fails when it does, or says "none" where there is
-no test.
-
-| Canvas symbol | Used in | What breaks | Caught by |
-| --- | --- | --- | --- |
-| `ComponentSourceBase` (`@internal`), `ComponentSourceInterface`, `ComponentSourceWithSlotsInterface`, the `ComponentSource` attribute | `src/Plugin/Canvas/ComponentSource/*`, base class `ViewTemplateComponentSourceBase` | Fatal errors when a method signature changes; components stop loading | `ViewTemplateComponentContractTest`, and most kernel tests (a fatal fails the suite) |
-| `canvas.component.*` schema (its list of allowed `source` plugin IDs) and `hook_config_schema_info_alter` | `src/Hook/ViewTemplateSchemaHooks.php`, `config/install/canvas.component.*.yml` | Config validation reports all 16 components as invalid, because the list is no longer found and nothing is added to it | `ViewTemplateWithoutDevModeTest`, `ViewTemplateSchemaHooksTest`, `ViewTemplateConfigDriftTest` |
-| Component version hash (`generateVersionHash()`), `Component::loadVersion()`, `getActiveVersion()` | `active_version` in the shipped config, `ViewTemplateComponentInstanceForm` | Components fail to load or edit; stored hashes go stale | `ViewTemplateComponentContractTest`, `ViewTemplateConfigDriftTest`, `ViewTemplateTest::testShippedComponentVersionHashesAreCurrent` |
-| `Folder` config entity, created by `Component::postSave()` | `canvas_view_template.install`, `ViewTemplatePlaceholder::LIBRARY_FOLDER_NAME` | Components appear outside the "View template" folder, or two folders exist | `ViewTemplateConfigDriftTest` (folder contents); config sync between environments: none |
-| `ComponentTreeConfigEntityBase` (`@internal`), `CanvasHttpApiEligibleConfigEntityInterface`, `ClientServerConversionTrait` (`@internal`), `ClientSideRepresentation`, `EmptyTargetEntityProviderInterface`, `ComponentTreeItemList` | `src/Entity/ViewTemplate.php`, `ViewTemplateTreeItems` | Fatals; the editor cannot load, save or validate templates | `ViewTemplateTest`, `ViewTemplateTreeFuzzTest`; Canvas's HTTP config API (PATCH, POST): none |
-| `ComponentTreeItemList::renderify()` and Fibers | `ViewTemplateRenderer` | Placeholders silently render nothing | `ViewTemplateRendererTest`, `ViewTemplateRendererEdgeCasesTest` |
-| `CanvasConfigEntityAccessControlHandler` | `ViewTemplateAccessControlHandler` | Access and delete-lock behaviour changes | `ViewTemplateRouteAccessTest`, `ViewTemplatePanelBackendTest` |
-| `AutoSaveManager` | `ViewTemplateDrafts` | Previews show the published template instead of the draft | `ViewTemplateDraftsTest` |
-| `ComponentInstanceForm` (`final`, its `FORM_ID` and a copy of `buildForm()`), `ComponentTreeLoader`, `ComponentSourceManager`, `JsonSchemaPropsComponentSourceBase`, `Fallback`, `FormIdPreRender` | `ViewTemplateComponentInstanceForm` | The settings form for components in a template errors or differs from Canvas's | `ViewTemplateComponentInstanceFormTest`; drift of the copied `buildForm()`: `CanvasCopiesTest` |
-| `ModuleHooks::PAGE_DATA_FORM_ID`, `FormIdPreRender` | `ViewTemplatePreviewForm` | The "Page data" panel loses its AJAX handling | `ViewTemplatePreviewTest` |
-| `canvas.api.form.content_entity` route and its controller | `ViewTemplateEntityFormControllerSubscriber` | A change to Canvas's "Page data" panel is not picked up for view templates | none directly (`ViewTemplatePreviewTest` covers the form) |
-| `PreviewEnvelope` public properties, `PreviewEnvelopeViewSubscriber` at priority 0 | `ViewTemplatePreviewSubscriber`, `ViewTemplateEntityFormFieldsSubscriber` | The editor preview for view templates fails or loses fields | `ViewTemplatePreviewTest`, `ViewTemplateHardeningTest` |
-| Routes `canvas.api.config.{get,patch,delete,post,list}` and the `(a\|b)` form of their `canvas_config_entity_type_id` requirement | `ViewTemplateRouteSubscriber` | View templates are unreachable through Canvas's API, so the editor fails to load them | `ViewTemplateRouteSubscriberTest` |
-| Route-name prefix `canvas.api.form.` and the `canvas_stark` theme | `canvas_view_template.routing.yml`, `ViewTemplateComponentInstanceForm` | The settings form renders in the wrong theme or blank | `ViewTemplateComponentInstanceFormTest` (theme), `ViewTemplateRouteAccessTest` (route) |
-| Route-name prefix `canvas.api.layout.` | `ViewTemplatePreviewHooks`, `ViewTemplatePreviewSubscriber` | Editor previews and the Views preview behave like front-end requests | `ViewTemplatePreviewTest`, `ViewTemplatePageVariantSelectorSubscriberTest` |
-| `CanvasPageVariant` plugin ID with `PREVIEW_KEY` and `VARIANT_ID_KEY`, the `PageVariant` entity | `ViewTemplatePageVariantSelectorSubscriber` | The wrong page template (or none) wraps the view | `ViewTemplatePageVariantSelectorSubscriberTest` |
-| Routes `canvas.boot.entity` and `canvas.boot.app` | `ViewTemplateStyle` (links in the Views UI) | Broken "edit template" links in the Views UI | `ViewTemplateStyleTest` |
-| Canvas page extensions (`canvas_view_template.canvas_extension.yml`) and the compiled Canvas stylesheet | `extension/`, see "Keeping the panel in step with Canvas" | The View templates panel is missing or looks different | `ViewTemplateExtensionTest` and the browser tests; a change to the menu rules in Canvas's stylesheet: `CanvasCopiesTest` |
+- **"Different UUID" errors on `drush config:import`.** The module was enabled
+  on that environment before the import. See
+  [Moving between environments](#moving-between-environments-config-sync).
+- **The module will not uninstall.** A View display still uses the
+  **Canvas view template** format. Switch its **Format** first (see
+  [Uninstalling](#uninstalling)).
+- **A template will not publish: "View repeater" inside another one.** Move the
+  inner repeater beside the first, or use `View item` and `View field` inside
+  the first.
+- **`View field` shows nothing, or its field list is empty.** It needs a view
+  whose Format uses the **Fields** row style. Choose a view under Page data,
+  Preview with view, to pick the field from a list.
+- **`View header`, `View footer`, `View more link` or `View attachments` show
+  nothing.** The view has to have them turned on in its own settings.
+- **A template cannot be deleted.** Displays still use it. Choose another
+  template in their Format settings first.
+- **The module will not install: Canvas version.** It supports only Canvas
+  1.13.x.
 
 ## Known limitations
 
@@ -353,139 +162,21 @@ no test.
   styled to match, which lists, creates and deletes them and opens
   Canvas's real, generic editor for the actual visual building. There is
   no separate Drupal admin listing.
-- **This module extends Canvas classes marked `@internal`**, because Canvas does
-  not yet expose a public, stable API for third-party component sources or
-  component-tree-bearing entity types. A Canvas release could change them
-  without a deprecation cycle; the version constraint in the info file and the
-  table above are the safeguards, and this is a known, accepted trade-off.
-- **The component settings form is a copy of Canvas's.** Canvas's
-  `ComponentInstanceForm` asserts a fixed list of entity types that
-  doesn't include `ViewTemplate`, and the class is `final`. View
-  templates therefore use their own copy
-  (`src/Form/ViewTemplateComponentInstanceForm.php`, routed by
-  `canvas.api.form.component_instance.canvas_view_template`), which must be
-  kept in sync with Canvas when `ComponentInstanceForm` changes (`CanvasCopiesTest`
-  fails when it does). It was last compared against Canvas 1.13.0.
+- **It extends Canvas classes marked `@internal`**, and the component settings
+  form is a copy of Canvas's. A Canvas release could change either without a
+  deprecation cycle, which is why the info file allows only Canvas 1.13.x. See
+  [Coupling to Canvas](docs/canvas-coupling.md).
+- **No linking of Canvas components to an item's fields.** Use `View field`,
+  `View item` or `View item link` instead. The reasoning is in
+  [Not built](docs/not-built.md).
 
-### Not built: linking Canvas components to an item's fields
+## More documentation
 
-Components inside a `View repeater` can't have their settings linked to the
-current item's fields (a Heading's text to the title, an Image's source to the
-image field). Use `View field` for a field's formatted output, `View item` for
-a whole item, or `View item link` to link a group of components to the item's
-page.
-
-Canvas supports that kind of linking only in content templates, where there is
-one host entity. Doing it here would mean making each repeated item act as
-that host in turn, which depends on Canvas's internals for evaluating field
-links and could break on a Canvas update. A view's items are also not always
-entities (files, users, plain database tables), so some fields would never
-link. `View field`, `View item` and `View item link` cover most layouts, so
-this was left out.
-
-**Also left out: a raw-value option on `View field`.** It would print a field's
-stored value as plain text instead of its formatted markup. Its main use would
-be feeding a value into another component's setting, which needs the field
-linking above. On its own it falls short: an image's raw value is a file ID and
-a term reference's is a term ID, a link field's is a bare URL, and a date's is a
-timestamp. A view's own field settings (formatter, rewrite results, strip tags)
-already control the formatted output that `View field` shows. If plain text in a
-markup-free spot is ever needed, a "strip markup" setting would be the safer
-version, built when there is a real case.
-
-## Changing a component
-
-These components ship as config and their sources are not discovered, so Canvas
-never updates them. A change to a component's slot definitions or settings
-schema changes its version hash, so put the new hash as `active_version` in the
-shipped config (`config/install`). Sites that already have the module also need
-an update hook that creates the new version on the existing Component entity
-and makes it active, and moves placements if the component is replaced. Slot
-titles and descriptions are plain English for this reason: translated, the hash
-would depend on the interface language.
-
-Update hook numbers start at 10001 and go up by one. The module has no update
-hooks yet: the first one is added with the first component change after a site
-installs the module.
-
-`Drupal\canvas_view_template\Update\ComponentUpdater` does the work, in trees
-and in unpublished drafts, and is safe to run twice:
-
-```php
-/**
- * Adds the "Element" setting to "View title".
- */
-function canvas_view_template_update_10001(): void {
-  $updater = \Drupal::service(ComponentUpdater::class);
-  $old_version = Component::load('canvas_view_template_title.view_title')->getActiveVersion();
-  if ($updater->updateToShipped('canvas_view_template_title.view_title')) {
-    $updater->migratePlacements('canvas_view_template_title.view_title', $old_version, [
-      'element' => 'h2',
-    ]);
-  }
-}
-```
-
-Use `movePlacements()` instead when one component replaces another, before
-deleting the old one, and `addMissing()` when a release only adds components.
-`ViewTemplateComponentUpdaterTest` simulates an older site.
-
-## Testing
-
-Kernel tests (fast, no browser):
-
-```bash
-vendor/bin/phpunit -c web/core/phpunit.xml.dist web/modules/custom/canvas_view_template/tests/src/Kernel
-```
-
-Browser tests drive the Canvas editor in a real browser: the view select in
-Page data, the full-width preview and its pager, the nested repeater
-warning, and the View templates panel (usage line, Duplicate, the delete lock,
-keyboard focus and menu placement). They need a WebDriver browser. With DDEV's selenium-standalone-chrome
-add-on the environment is already set up:
-
-```bash
-ddev exec "vendor/bin/phpunit -c web/core/phpunit.xml.dist web/modules/custom/canvas_view_template/tests/src/FunctionalJavascript"
-```
-
-The two scripts (`js/live-preview.js`, `js/style-options.js`) also have
-dependency-free Node tests against a small DOM stub. They need only Node:
-
-```bash
-node tests/js/live-preview.test.js
-node tests/js/style-options.test.js
-```
-
-### Development checks
-
-The drupal.org pipeline (`.gitlab-ci.yml`) runs PHPCS, PHPStan, cspell and the
-PHPUnit tests. The same checks run locally:
-
-```bash
-# Coding standards (Drupal and DrupalPractice, see phpcs.xml.dist)
-vendor/bin/phpcs --standard=web/modules/custom/canvas_view_template/phpcs.xml.dist web/modules/custom/canvas_view_template
-
-# Static analysis: level 6, with the findings that exist today in
-# phpstan-baseline.neon so that only new ones fail
-vendor/bin/phpstan analyze -c web/modules/custom/canvas_view_template/phpstan.neon
-```
-
-The spell check reads `.cspell-project-words.txt`; add project-specific words
-there, one per line.
-
-### Continuous integration
-
-`.gitlab-ci.yml` uses the drupal.org GitLab templates (phpcs, phpstan, PHPUnit
-with the kernel and browser tests, and the lint jobs) on the current and next
-minor core. It adds one job, `node tests`, which runs the four Node tests on
-Node 24 and fails the pipeline. `.eslintrc.json` tells the templates' eslint job
-that `extension/*.js` are ES modules and `tests/js` runs in Node; without it
-core's config reads them as scripts and reports a parse error on `import`.
-`CanvasCopiesTest` compares against the Canvas that `composer` installs there.
-
-The timing and memory tests (`ViewTemplateRenderCostTest`,
-`ViewTemplateScaleTest`, group `canvas_view_template_slow`) depend on how busy
-the runner is. The blocking PHPUnit jobs skip them with `_PHPUNIT_EXTRA`, and
-the `phpunit slow` job runs them on current core with `allow_failure`. Locally
-they run with the rest of the suite. This setup has not yet run on GitLab; check
-that the job name in `extends:` matches the template's.
+- [Using the components](docs/using-components.md): how each component
+  behaves and how to combine them.
+- [Coupling to Canvas](docs/canvas-coupling.md): the Canvas internals this
+  module uses, and what to check after a Canvas update.
+- [Changing a component](docs/changing-a-component.md): version hashes and
+  update hooks.
+- [Testing and CI](docs/testing.md): running the suites and the checks.
+- [Not built](docs/not-built.md): features left out, and why.
