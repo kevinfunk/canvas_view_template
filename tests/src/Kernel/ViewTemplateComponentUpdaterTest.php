@@ -12,6 +12,7 @@ use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateTitle;
 use Drupal\canvas_view_template\Update\ComponentUpdater;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * Tests the helpers an update hook uses to change a component.
@@ -21,6 +22,7 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[CoversClass(ComponentUpdater::class)]
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplateComponentUpdaterTest extends ViewTemplateKernelTestBase {
 
   private const string TITLE_ID = ViewTemplateTitle::SOURCE_PLUGIN_ID . '.' . ViewTemplateTitle::LOCAL_ID;
@@ -34,17 +36,12 @@ final class ViewTemplateComponentUpdaterTest extends ViewTemplateKernelTestBase 
 
   /**
    * {@inheritdoc}
-   *
-   * The simulated old version has a made-up hash, which the strict schema
-   * rejects: a real old version needs a real older component to hash.
-   */
-  // phpcs:ignore DrupalPractice.Objects.StrictSchemaDisabled.StrictConfigSchema
-  protected $strictConfigSchema = FALSE;
-
-  /**
-   * {@inheritdoc}
    */
   protected function setUp(): void {
+    // The simulated old version has a made-up hash that strict schema rejects.
+    // Not a property: Drupal 12 types it, Drupal 11 does not.
+    // phpcs:ignore DrupalPractice.Objects.StrictSchemaDisabled.StrictConfigSchema
+    $this->strictConfigSchema = FALSE;
     parent::setUp();
     $this->installEntitySchema('path_alias');
     $this->updater = $this->container->get(ComponentUpdater::class);

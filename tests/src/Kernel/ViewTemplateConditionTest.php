@@ -15,6 +15,7 @@ use Drupal\Core\Form\FormState;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * Tests "View condition": content shown only when a condition is met.
@@ -22,6 +23,7 @@ use PHPUnit\Framework\Attributes\Group;
 #[CoversClass(ViewTemplateCondition::class)]
 #[CoversClass(ViewConditions::class)]
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplateConditionTest extends ViewTemplateKernelTestBase {
 
   /**

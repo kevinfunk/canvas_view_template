@@ -17,6 +17,7 @@ use Drupal\canvas_view_template\Plugin\Validation\Constraint\ViewTemplateAtMostO
 use Drupal\canvas_view_template\Plugin\Validation\Constraint\ViewTemplateNoNestedRepeaterConstraint;
 use Drupal\canvas_view_template\Plugin\Validation\Constraint\ViewTemplateRepeaterContentsConstraint;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use Symfony\Component\Validator\Validation;
 
 /**
@@ -26,6 +27,7 @@ use Symfony\Component\Validator\Validation;
  * failure message is enough to rebuild the tree.
  */
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplateTreeFuzzTest extends ViewTemplateKernelTestBase {
 
   private const int SEED = 20260101;

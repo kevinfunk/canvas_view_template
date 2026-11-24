@@ -13,6 +13,7 @@ use Drupal\Core\Form\FormState;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 
@@ -23,6 +24,7 @@ use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
  */
 #[CoversClass(ViewTemplateComponentInstanceForm::class)]
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplateComponentInstanceFormTest extends ViewTemplateKernelTestBase {
 
   /**

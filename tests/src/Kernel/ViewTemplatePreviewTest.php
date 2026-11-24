@@ -29,6 +29,7 @@ use Drupal\views\Views;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\ViewEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
@@ -45,6 +46,7 @@ use Symfony\Component\Routing\Route;
 #[CoversClass(ViewTemplateLivePreviewController::class)]
 #[CoversClass(ViewTemplatePreviewHooks::class)]
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplatePreviewTest extends ViewTemplateKernelTestBase {
 
   use UserCreationTrait;

@@ -20,6 +20,7 @@ use Drupal\user\Entity\User;
 use Drupal\views\Entity\View;
 use Drupal\views\Views;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Session\Session;
 use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
@@ -32,6 +33,7 @@ use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
  * display types) and checks that the template shows it correctly.
  */
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplateViewsVarietyTest extends ViewTemplateKernelTestBase {
 
   use UserCreationTrait;

@@ -32,6 +32,7 @@ use Drupal\views\ResultRow;
 use Drupal\views\Views;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\ViewEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
@@ -47,6 +48,7 @@ use Symfony\Component\Routing\Route;
 #[CoversClass(ViewTemplatePreviewSubscriber::class)]
 #[CoversClass(ViewTemplatePageVariantSelectorSubscriber::class)]
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplateHardeningTest extends ViewTemplateKernelTestBase {
 
   use UserCreationTrait;

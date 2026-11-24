@@ -35,3 +35,4 @@ live_preview:
     - core/drupal
     - core/drupalSettings
     - core/drupal.announce
+    - core/jquery

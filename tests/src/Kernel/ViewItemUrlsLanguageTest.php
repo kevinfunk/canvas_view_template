@@ -18,12 +18,14 @@ use Drupal\views\Views;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * Tests that item links follow the display's "Rendering language".
  */
 #[CoversClass(ViewItemUrls::class)]
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewItemUrlsLanguageTest extends ViewTemplateKernelTestBase {
 
   use UserCreationTrait;

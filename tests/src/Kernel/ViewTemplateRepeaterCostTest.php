@@ -14,6 +14,7 @@ use Drupal\canvas_view_template\Render\ViewTemplateRenderer;
 use Drupal\Core\DependencyInjection\ContainerBuilder;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * Pins how a repeater's cost grows with the number of rows.
@@ -25,6 +26,7 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[CoversClass(ViewTemplateRenderer::class)]
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplateRepeaterCostTest extends ViewTemplateKernelTestBase {
 
   /**

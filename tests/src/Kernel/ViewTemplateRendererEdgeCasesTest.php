@@ -16,12 +16,14 @@ use Drupal\canvas_view_template\Render\ViewTemplateRenderer;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * Tests the renderer on the edges: empty, too few, too many, and mixed data.
  */
 #[CoversClass(ViewTemplateRenderer::class)]
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplateRendererEdgeCasesTest extends ViewTemplateKernelTestBase {
 
   private const string REPEATER = ViewTemplateRepeater::SOURCE_PLUGIN_ID . '.' . ViewTemplateRepeater::LOCAL_ID;

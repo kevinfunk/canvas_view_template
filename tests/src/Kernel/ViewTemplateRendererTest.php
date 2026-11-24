@@ -16,12 +16,14 @@ use Drupal\canvas_view_template\Render\ViewTemplateRenderer;
 use Drupal\Core\Render\BubbleableMetadata;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * Tests the Fiber-based dispatch that renders a view template.
  */
 #[CoversClass(ViewTemplateRenderer::class)]
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplateRendererTest extends ViewTemplateKernelTestBase {
 
   /**

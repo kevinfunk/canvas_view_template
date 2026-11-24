@@ -18,6 +18,7 @@ use Drupal\Tests\canvas\Kernel\CanvasKernelTestBase;
 use Drupal\Tests\user\Traits\UserCreationTrait;
 use Drupal\views\Entity\View;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * Tests that the module stays fast and small on a site with many Views.
@@ -29,6 +30,7 @@ use PHPUnit\Framework\Attributes\Group;
  * but a scan repeated for every View does.
  */
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 #[Group('canvas_view_template_slow')]
 final class ViewTemplateScaleTest extends ViewTemplateKernelTestBase {
 

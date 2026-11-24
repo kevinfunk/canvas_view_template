@@ -15,6 +15,7 @@ use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateSummar
 use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateTitle;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * Checks what Canvas expects of every component source this module provides.
@@ -22,6 +23,7 @@ use PHPUnit\Framework\Attributes\Group;
  * The components are found from config, so a new one cannot be forgotten.
  */
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplateComponentContractTest extends ViewTemplateKernelTestBase {
 
   /**

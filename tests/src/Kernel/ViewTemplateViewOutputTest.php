@@ -14,6 +14,7 @@ use Drupal\views\Entity\View;
 use Drupal\views\Views;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * Tests a whole View rendered through its view template and Twig template.
@@ -23,6 +24,7 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[CoversClass(ViewTemplateThemeHooks::class)]
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplateViewOutputTest extends ViewTemplateKernelTestBase {
 
   /**

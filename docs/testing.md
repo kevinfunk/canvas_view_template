@@ -61,6 +61,28 @@ new finding fails the check, and fixing one means deleting its entry.
 The spell check reads `.cspell-project-words.txt`; add project-specific words
 there, one per line.
 
+## Drupal 12
+
+The module declares Drupal `^11.4` only. Canvas 1.13 itself requires `^11.3`, so
+Canvas 1.13 and Drupal 12 cannot be installed together, and a wider constraint
+here could not be tested. Widen `core_version_requirement` and `composer.json`
+once a Canvas release supports Drupal 12, then run the suites on Drupal 12.
+
+Meanwhile the code is kept free of Drupal 12 deprecations. Check with
+[Upgrade Status](https://www.drupal.org/project/upgrade_status):
+
+```bash
+ddev drush upgrade-status:analyze canvas_view_template
+```
+
+Expected warnings today: the two `^11.4` constraints, and the two
+`DependencySerializationTrait` notes on the access handler (also in the PHPStan
+baseline). A kernel run also shows deprecations from Canvas itself
+(`canvas_requirements` without `#[LegacyRequirementsHook]`); those are not this
+module's. Every concrete kernel test class needs
+`#[RunTestsInSeparateProcesses]`, which PHPUnit does not inherit from a base
+class.
+
 ## Mutation checks
 
 Passing tests show that code works, not that the tests would notice if it

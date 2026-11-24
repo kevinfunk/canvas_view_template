@@ -14,6 +14,7 @@ use Drupal\canvas_view_template\Render\ViewRenderData;
 use Drupal\canvas_view_template\Render\ViewTemplateRenderer;
 use Drupal\Core\Config\TypedConfigManagerInterface;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use Symfony\Component\Validator\Constraints\Choice;
 use Drupal\Tests\canvas\Kernel\CanvasKernelTestBase;
 
@@ -27,6 +28,7 @@ use Drupal\Tests\canvas\Kernel\CanvasKernelTestBase;
  * this fails, and docs/canvas-coupling.md needs revisiting.
  */
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplateWithoutDevModeTest extends CanvasKernelTestBase {
 
   /**

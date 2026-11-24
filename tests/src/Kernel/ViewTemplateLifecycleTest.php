@@ -16,6 +16,7 @@ use Drupal\Tests\canvas\Kernel\CanvasKernelTestBase;
 use Drupal\views\Entity\View;
 use Drupal\views\Views;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * Tests installing, uninstalling and reinstalling the module on a live site.
@@ -25,6 +26,7 @@ use PHPUnit\Framework\Attributes\Group;
  * uninstalling must remove only what it added.
  */
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplateLifecycleTest extends CanvasKernelTestBase {
 
   /**

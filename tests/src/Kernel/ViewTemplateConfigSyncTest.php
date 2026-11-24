@@ -12,6 +12,7 @@ use Drupal\canvas_view_template\ViewTemplateUsage;
 use Drupal\Tests\canvas\Kernel\CanvasKernelTestBase;
 use Drupal\views\Entity\View;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * Tests that view templates and the Views using them survive config sync.
@@ -20,6 +21,7 @@ use PHPUnit\Framework\Attributes\Group;
  * the Views that select them and the component config, all by config sync.
  */
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplateConfigSyncTest extends ViewTemplateKernelTestBase {
 
   /**

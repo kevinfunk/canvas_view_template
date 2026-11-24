@@ -10,12 +10,14 @@ use Drupal\Core\Form\FormState;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * Tests the "View repeater" ComponentSource plugin.
  */
 #[CoversClass(ViewTemplateRepeater::class)]
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplateRepeaterTest extends ViewTemplateKernelTestBase {
 
   /**

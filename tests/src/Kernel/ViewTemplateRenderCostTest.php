@@ -17,6 +17,7 @@ use Drupal\Tests\user\Traits\UserCreationTrait;
 use Drupal\views\Entity\View;
 use Drupal\views\Views;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * Tests what a template adds to the cost of rendering a real View.
@@ -34,6 +35,7 @@ use PHPUnit\Framework\Attributes\Group;
  * than the rows.
  */
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 #[Group('canvas_view_template_slow')]
 final class ViewTemplateRenderCostTest extends ViewTemplateKernelTestBase {
 

@@ -13,6 +13,7 @@ use Drupal\Tests\canvas\Kernel\CanvasKernelTestBase;
 use Drupal\views\Entity\View;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * Tests how usage is read from the Views' raw config, and the uninstall block.
@@ -20,6 +21,7 @@ use PHPUnit\Framework\Attributes\Group;
 #[CoversClass(ViewTemplateUsage::class)]
 #[CoversClass(ViewTemplateUninstallValidator::class)]
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplateUsageTest extends ViewTemplateKernelTestBase {
 
   /**

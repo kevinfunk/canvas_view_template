@@ -13,12 +13,14 @@ use Drupal\canvas_view_template\Render\ViewRenderData;
 use Drupal\Core\Form\FormState;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * Tests "View item link": the content linked to the current item's page.
  */
 #[CoversClass(ViewTemplateItemLink::class)]
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplateItemLinkTest extends ViewTemplateKernelTestBase {
 
   /**

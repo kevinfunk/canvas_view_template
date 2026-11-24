@@ -9,12 +9,14 @@ use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateTitle;
 use Drupal\Core\Form\FormState;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * Tests the "View title" component's settings.
  */
 #[CoversClass(ViewTemplateTitle::class)]
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplateTitleTest extends ViewTemplateKernelTestBase {
 
   /**

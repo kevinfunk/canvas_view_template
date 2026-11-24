@@ -15,6 +15,7 @@ use Drupal\views\Entity\View;
 use Drupal\views\Views;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * Tests what a visitor gets when a template cannot be fully rendered.
@@ -25,6 +26,7 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[CoversClass(ViewTemplateThemeHooks::class)]
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplateRenderFailureTest extends ViewTemplateKernelTestBase {
 
   /**

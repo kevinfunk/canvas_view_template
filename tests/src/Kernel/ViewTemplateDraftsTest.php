@@ -10,12 +10,14 @@ use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplatePlaceh
 use Drupal\canvas_view_template\ViewTemplateDrafts;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * Tests finding the version of a view template the editor is working on.
  */
 #[CoversClass(ViewTemplateDrafts::class)]
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplateDraftsTest extends ViewTemplateKernelTestBase {
 
   /**

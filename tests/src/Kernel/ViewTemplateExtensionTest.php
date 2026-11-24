@@ -7,11 +7,13 @@ namespace Drupal\Tests\canvas_view_template\Kernel;
 use Drupal\canvas\Extension\CanvasExtensionPluginManager;
 use Drupal\canvas\Extension\CanvasExtensionTypeEnum;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * Tests the "View templates" Canvas editor extension.
  */
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplateExtensionTest extends ViewTemplateKernelTestBase {
 
   /**

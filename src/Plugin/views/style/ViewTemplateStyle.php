@@ -119,7 +119,7 @@ final class ViewTemplateStyle extends StylePluginBase {
   /**
    * {@inheritdoc}
    */
-  protected function defineOptions() {
+  protected function defineOptions(): array {
     $options = parent::defineOptions();
     $options[self::OPTION_KEY] = ['default' => NULL];
     $options[self::PAGE_VARIANT_OPTION_KEY] = ['default' => NULL];

@@ -69,6 +69,9 @@ node web/modules/custom/canvas_view_template/tests/js/panel-smoke.test.mjs
   `#[DataProvider(...)]`), never `@group` or `@dataProvider` annotations.
   Test method names are lowerCamel with no consecutive capitals. Docblock
   summaries start with a capital letter.
+- Every concrete kernel test class carries `#[RunTestsInSeparateProcesses]`.
+  PHPUnit does not inherit it from `ViewTemplateKernelTestBase`, and Drupal 12
+  throws without it.
 - Kernel tests extend `ViewTemplateKernelTestBase`. Use its helpers
   (`treeItem()`, `placeholderItem()`, `renderWithData()`,
   `createPageVariant()`, `installNodeSupport()`) before writing a new builder.

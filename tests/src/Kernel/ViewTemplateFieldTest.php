@@ -15,6 +15,7 @@ use Drupal\Core\Render\Markup;
 use Drupal\views\Entity\View;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * Tests "View field": one field of the current item.
@@ -22,6 +23,7 @@ use PHPUnit\Framework\Attributes\Group;
 #[CoversClass(ViewTemplateField::class)]
 #[CoversClass(ViewFieldRenders::class)]
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplateFieldTest extends ViewTemplateKernelTestBase {
 
   /**

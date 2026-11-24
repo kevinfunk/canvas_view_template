@@ -17,12 +17,14 @@ use Drupal\Tests\canvas\Kernel\CanvasKernelTestBase;
 use Drupal\views\Entity\View;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * Tests the fields offered when no View is chosen for the preview.
  */
 #[CoversClass(ViewTemplateField::class)]
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplateFieldChoicesTest extends ViewTemplateKernelTestBase {
 
   /**
@@ -208,7 +210,7 @@ final class ViewTemplateFieldChoicesTest extends ViewTemplateKernelTestBase {
   public function testDisabledViewsAreNotOfferedToAdmins(): void {
     $this->createView('cvt_on', TRUE, ['cvt_on_field' => ['id' => 'cvt_on_field', 'label' => 'On']]);
     $this->createView('cvt_off', FALSE, ['cvt_off_field' => ['id' => 'cvt_off_field', 'label' => 'Off']]);
-    $admin = $this->createMock(AccountInterface::class);
+    $admin = $this->createStub(AccountInterface::class);
     $admin->method('hasPermission')->willReturn(TRUE);
     $choices = new ViewFieldChoices(
       $this->container->get(ViewTemplatePreviewSelection::class),

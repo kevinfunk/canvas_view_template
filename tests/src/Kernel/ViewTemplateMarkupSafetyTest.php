@@ -16,6 +16,7 @@ use Drupal\Tests\user\Traits\UserCreationTrait;
 use Drupal\views\Entity\View;
 use Drupal\views\Views;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * Tests that names and settings are shown as text, never as markup.
@@ -25,6 +26,7 @@ use PHPUnit\Framework\Attributes\Group;
  * text. The payloads carry a token so a leak is easy to see in the output.
  */
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplateMarkupSafetyTest extends ViewTemplateKernelTestBase {
 
   use UserCreationTrait;

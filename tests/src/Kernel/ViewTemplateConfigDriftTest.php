@@ -11,12 +11,14 @@ use Drupal\canvas\Entity\Folder;
 use Drupal\Core\Config\Schema\SchemaCheckTrait;
 use Drupal\Core\Config\TypedConfigManagerInterface;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use Symfony\Component\Yaml\Yaml;
 
 /**
  * Checks the shipped component config against the plugins that produce it.
  */
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplateConfigDriftTest extends ViewTemplateKernelTestBase {
 
   use SchemaCheckTrait;

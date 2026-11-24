@@ -11,12 +11,14 @@ use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplatePlaceh
 use Drupal\canvas_view_template\Plugin\Canvas\ComponentSource\ViewTemplateRepeater;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * Tests the `canvas_view_template` config entity type.
  */
 #[CoversClass(ViewTemplate::class)]
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplateTest extends ViewTemplateKernelTestBase {
 
   /**

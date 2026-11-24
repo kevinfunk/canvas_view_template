@@ -12,12 +12,14 @@ use Drupal\views\Entity\View;
 use Drupal\views\Views;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * Tests the "Canvas view template" Views style plugin.
  */
 #[CoversClass(ViewTemplateStyle::class)]
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplateStyleTest extends ViewTemplateKernelTestBase {
 
   /**

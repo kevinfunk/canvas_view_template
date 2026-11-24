@@ -17,6 +17,7 @@ use Drupal\Tests\user\Traits\UserCreationTrait;
 use Drupal\views\Entity\View;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -27,6 +28,7 @@ use Symfony\Component\HttpFoundation\Request;
 #[CoversClass(ViewTemplateUsage::class)]
 #[CoversClass(ViewTemplateAccessControlHandler::class)]
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplatePanelBackendTest extends ViewTemplateKernelTestBase {
 
   use UserCreationTrait;

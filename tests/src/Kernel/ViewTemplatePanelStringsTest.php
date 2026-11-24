@@ -10,12 +10,14 @@ use Drupal\language\Entity\ConfigurableLanguage;
 use Drupal\Tests\canvas\Kernel\CanvasKernelTestBase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * Tests the table that translates the View templates panel.
  */
 #[CoversClass(ViewTemplatePanelStringsController::class)]
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplatePanelStringsTest extends ViewTemplateKernelTestBase {
 
   /**

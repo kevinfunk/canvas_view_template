@@ -21,6 +21,7 @@ use Drupal\Tests\user\Traits\UserCreationTrait;
 use Drupal\views\Entity\View;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
@@ -30,6 +31,7 @@ use Symfony\Component\HttpKernel\HttpKernelInterface;
  */
 #[CoversClass(ViewTemplateLivePreviewController::class)]
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplateLivePreviewAssetsTest extends ViewTemplateKernelTestBase {
 
   use UserCreationTrait;

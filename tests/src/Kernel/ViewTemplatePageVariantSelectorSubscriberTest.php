@@ -17,6 +17,7 @@ use Drupal\Tests\user\Traits\UserCreationTrait;
 use Drupal\views\Entity\View;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use Symfony\Component\Routing\Route;
 
 /**
@@ -27,6 +28,7 @@ use Symfony\Component\Routing\Route;
  */
 #[CoversClass(ViewTemplatePageVariantSelectorSubscriber::class)]
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplatePageVariantSelectorSubscriberTest extends ViewTemplateKernelTestBase {
 
   use UserCreationTrait;

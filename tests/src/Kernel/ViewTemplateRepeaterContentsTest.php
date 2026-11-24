@@ -20,6 +20,7 @@ use Drupal\canvas_view_template\Plugin\Validation\Constraint\ViewTemplateRepeate
 use Drupal\canvas_view_template\Plugin\Validation\Constraint\ViewTemplateTreeItems;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use Symfony\Component\Validator\Validation;
 
 /**
@@ -30,6 +31,7 @@ use Symfony\Component\Validator\Validation;
 #[CoversClass(ViewTemplateAtMostOneRowsConstraintValidator::class)]
 #[CoversClass(ViewTemplateTreeItems::class)]
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplateRepeaterContentsTest extends ViewTemplateKernelTestBase {
 
   private const string REPEATER = ViewTemplateRepeater::SOURCE_PLUGIN_ID . '.' . ViewTemplateRepeater::LOCAL_ID;

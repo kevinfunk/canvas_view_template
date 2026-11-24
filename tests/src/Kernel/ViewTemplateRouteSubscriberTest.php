@@ -8,6 +8,7 @@ use Drupal\canvas_view_template\Routing\ViewTemplateRouteSubscriber;
 use Drupal\Core\Routing\RouteBuildEvent;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
 
@@ -16,6 +17,7 @@ use Symfony\Component\Routing\RouteCollection;
  */
 #[CoversClass(ViewTemplateRouteSubscriber::class)]
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplateRouteSubscriberTest extends ViewTemplateKernelTestBase {
 
   private const array ROUTES = [

@@ -20,12 +20,14 @@ use Drupal\views\ViewExecutable;
 use Drupal\views\Views;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * Tests the collector that turns an executed View into render data.
  */
 #[CoversClass(ViewRenderDataCollector::class)]
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewRenderDataCollectorTest extends ViewTemplateKernelTestBase {
 
   use UserCreationTrait;

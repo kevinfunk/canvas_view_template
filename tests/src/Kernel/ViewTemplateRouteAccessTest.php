@@ -7,6 +7,7 @@ namespace Drupal\Tests\canvas_view_template\Kernel;
 use Drupal\canvas_view_template\Entity\ViewTemplate;
 use Drupal\Component\Serialization\Yaml;
 use Drupal\Core\Access\AccessManagerInterface;
+use Drupal\Core\Access\CsrfRequestHeaderAccessCheck;
 use Drupal\Core\Routing\RouteObjectInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Session\AnonymousUserSession;
@@ -15,6 +16,7 @@ use Drupal\Tests\user\Traits\UserCreationTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use Symfony\Component\HttpFoundation\InputBag;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
@@ -24,6 +26,7 @@ use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
  */
 #[CoversClass(ViewTemplate::class)]
 #[Group('canvas_view_template')]
+#[RunTestsInSeparateProcesses]
 final class ViewTemplateRouteAccessTest extends ViewTemplateKernelTestBase {
 
   use UserCreationTrait;
@@ -162,7 +165,7 @@ final class ViewTemplateRouteAccessTest extends ViewTemplateKernelTestBase {
 
     self::assertFalse($check(NULL, $this->admin), 'No token.');
     self::assertFalse($check('not-a-token', $this->admin), 'A wrong token.');
-    $valid = $this->container->get('csrf_token')->get('rest');
+    $valid = $this->container->get('csrf_token')->get(CsrfRequestHeaderAccessCheck::TOKEN_KEY);
     self::assertTrue($check($valid, $this->admin), 'The right token.');
     self::assertFalse($check($valid, $this->plainUser), 'The right token is not enough without the permission.');
     self::assertFalse($check($valid, new AnonymousUserSession()), 'Anonymous.');
