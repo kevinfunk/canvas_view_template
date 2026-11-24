@@ -155,4 +155,18 @@ return [
       $kernel . 'ViewTemplateWithoutDevModeTest.php',
     ],
   ],
+  'items-wrapped-by-default' => [
+    'description' => 'A repeater wraps its items although the setting is off.',
+    'file' => 'src/Plugin/Canvas/ComponentSource/ViewTemplateRepeater.php',
+    'find' => "'wrap' => \\filter_var(\$settings[self::INPUT_WRAP_ITEMS] ?? FALSE,",
+    'replace' => "'wrap' => \\filter_var(\$settings[self::INPUT_WRAP_ITEMS] ?? TRUE,",
+    'tests' => [$kernel . 'ViewTemplateRendererTest.php'],
+  ],
+  'last-item-not-marked' => [
+    'description' => 'The last wrapped item is not marked as last.',
+    'file' => 'src/Render/ViewTemplateRenderer.php',
+    'find' => 'if ($position === $count) {',
+    'replace' => 'if (FALSE) {',
+    'tests' => [$kernel . 'ViewTemplateRendererTest.php'],
+  ],
 ];

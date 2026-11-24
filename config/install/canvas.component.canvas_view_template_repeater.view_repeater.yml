@@ -7,7 +7,7 @@ dependencies:
   enforced:
     module:
       - canvas_view_template
-active_version: b35927ac90b1545a
+active_version: efcbc49f21f7cbdd
 versioned_properties:
   active:
     settings: {  }

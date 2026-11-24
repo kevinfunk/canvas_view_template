@@ -70,12 +70,17 @@ final class ViewTemplateRepeater extends ViewTemplateComponentSourceBase impleme
   public const string INPUT_PAGE_CONDITION_PAGE = 'page_condition_page';
 
   /**
+   * The explicit input key for wrapping each item (absent: no wrapper).
+   */
+  public const string INPUT_WRAP_ITEMS = 'wrap_items';
+
+  /**
    * Reads stored settings as safe values, whatever was stored.
    *
    * Config imports and the API can store strings or junk that validation
    * never saw, and the renderer must not throw on them.
    *
-   * @return array{limit: int|null, offset: int, mode: string, page: int|null}
+   * @return array{limit: int|null, offset: int, mode: string, page: int|null, wrap: bool}
    *   A NULL limit means no limit (0 too), a NULL page no page condition.
    */
   public static function normalizeSettings(mixed $settings): array {
@@ -88,6 +93,7 @@ final class ViewTemplateRepeater extends ViewTemplateComponentSourceBase impleme
       'offset' => \max(0, self::wholeNumber($settings[self::INPUT_OFFSET] ?? NULL) ?? 0),
       'mode' => \in_array($mode, [self::PAGE_CONDITION_ONLY, self::PAGE_CONDITION_EXCEPT], TRUE) ? $mode : self::PAGE_CONDITION_ALL,
       'page' => $page !== NULL && $page >= 1 ? $page : NULL,
+      'wrap' => \filter_var($settings[self::INPUT_WRAP_ITEMS] ?? FALSE, \FILTER_VALIDATE_BOOLEAN),
     ];
   }
 
@@ -263,6 +269,12 @@ final class ViewTemplateRepeater extends ViewTemplateComponentSourceBase impleme
       '#min' => 1,
       '#default_value' => $inputValues[self::INPUT_PAGE_CONDITION_PAGE] ?? NULL,
     ];
+    $form[self::INPUT_WRAP_ITEMS] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Wrap each item'),
+      '#description' => $this->t('Wraps each item in an element with position classes (cvt-item--first, cvt-item--last, cvt-item--odd, cvt-item--even) and a data-cvt-position number, so CSS can style items by position.'),
+      '#default_value' => (bool) ($inputValues[self::INPUT_WRAP_ITEMS] ?? FALSE),
+    ];
     return $form;
   }
 
@@ -282,6 +294,10 @@ final class ViewTemplateRepeater extends ViewTemplateComponentSourceBase impleme
       if ($value !== NULL && $value !== '') {
         $input[$key] = (int) $value;
       }
+    }
+    // Omitted when off, like limit and page.
+    if (\filter_var($resolved[self::INPUT_WRAP_ITEMS] ?? FALSE, \FILTER_VALIDATE_BOOLEAN)) {
+      $input[self::INPUT_WRAP_ITEMS] = TRUE;
     }
     return $input;
   }
@@ -316,6 +332,10 @@ final class ViewTemplateRepeater extends ViewTemplateComponentSourceBase impleme
     elseif (\in_array($mode, [self::PAGE_CONDITION_ONLY, self::PAGE_CONDITION_EXCEPT], TRUE) && ($page === NULL || $page < 1)) {
       $violations->add($this->violation($this->t('A page number is required when "Show on" is set to "Only page" or "All pages except".'), $inputValues, self::INPUT_PAGE_CONDITION_PAGE, $page));
     }
+    $wrap = $inputValues[self::INPUT_WRAP_ITEMS] ?? NULL;
+    if ($wrap !== NULL && !\is_bool($wrap)) {
+      $violations->add($this->violation($this->t('Wrap each item must be on or off.'), $inputValues, self::INPUT_WRAP_ITEMS, $wrap));
+    }
     return $violations;
   }
 
@@ -330,6 +350,7 @@ final class ViewTemplateRepeater extends ViewTemplateComponentSourceBase impleme
         self::INPUT_OFFSET => ['type' => 'integer'],
         self::INPUT_PAGE_CONDITION_MODE => ['type' => 'string'],
         self::INPUT_PAGE_CONDITION_PAGE => ['type' => 'integer', 'requiredKey' => FALSE],
+        self::INPUT_WRAP_ITEMS => ['type' => 'boolean', 'requiredKey' => FALSE],
       ],
     ];
   }

@@ -102,6 +102,24 @@ final class ViewTemplateRepeaterTest extends ViewTemplateKernelTestBase {
   }
 
   /**
+   * Wrapping is stored only when on, and the form's checkbox values convert.
+   */
+  public function testClientModelToInputWrapItems(): void {
+    foreach ([TRUE, 1, '1'] as $on) {
+      $model = ['resolved' => [ViewTemplateRepeater::INPUT_WRAP_ITEMS => $on]];
+      // @phpstan-ignore argument.type
+      $input = $this->source->clientModelToInput('some-uuid', $this->component, $model, NULL);
+      self::assertTrue($input[ViewTemplateRepeater::INPUT_WRAP_ITEMS], \var_export($on, TRUE));
+    }
+    foreach ([FALSE, 0, '0', ''] as $off) {
+      $model = ['resolved' => [ViewTemplateRepeater::INPUT_WRAP_ITEMS => $off]];
+      // @phpstan-ignore argument.type
+      $input = $this->source->clientModelToInput('some-uuid', $this->component, $model, NULL);
+      self::assertArrayNotHasKey(ViewTemplateRepeater::INPUT_WRAP_ITEMS, $input, \var_export($off, TRUE));
+    }
+  }
+
+  /**
    * An empty-string limit or page is omitted, not stored as 0 or ''.
    */
   public function testClientModelToInputEmptyStringsOmitted(): void {
@@ -207,6 +225,7 @@ final class ViewTemplateRepeaterTest extends ViewTemplateKernelTestBase {
       'mode that does not exist' => [[$offset => 0, $mode => 'bogus'], $mode],
       'mode as an array' => [[$offset => 0, $mode => ['only']], $mode],
       'page as a string' => [[$offset => 0, $mode => 'only', $page => '1'], $page],
+      'wrap as a string' => [[$offset => 0, 'wrap_items' => '1'], 'wrap_items'],
     ];
   }
 
@@ -230,22 +249,25 @@ final class ViewTemplateRepeaterTest extends ViewTemplateKernelTestBase {
    *   The cases.
    */
   public static function storedSettings(): array {
-    $none = ['limit' => NULL, 'offset' => 0, 'mode' => 'all', 'page' => NULL];
+    $none = ['limit' => NULL, 'offset' => 0, 'mode' => 'all', 'page' => NULL, 'wrap' => FALSE];
     return [
       'nothing stored' => [[], $none],
       'not an array' => ['junk', $none],
       'whole numbers' => [
         ['limit' => 3, 'offset' => 2, 'page_condition_mode' => 'only', 'page_condition_page' => 2],
-        ['limit' => 3, 'offset' => 2, 'mode' => 'only', 'page' => 2],
+        ['limit' => 3, 'offset' => 2, 'mode' => 'only', 'page' => 2, 'wrap' => FALSE],
       ],
       'numbers as strings' => [
         ['limit' => ' 3 ', 'offset' => '2', 'page_condition_mode' => 'except', 'page_condition_page' => '4'],
-        ['limit' => 3, 'offset' => 2, 'mode' => 'except', 'page' => 4],
+        ['limit' => 3, 'offset' => 2, 'mode' => 'except', 'page' => 4, 'wrap' => FALSE],
       ],
       'whole floats' => [
         ['limit' => 3.0, 'offset' => 1.0],
-        ['limit' => 3, 'offset' => 1, 'mode' => 'all', 'page' => NULL],
+        ['limit' => 3, 'offset' => 1, 'mode' => 'all', 'page' => NULL, 'wrap' => FALSE],
       ],
+      'wrap on' => [['wrap_items' => TRUE], \array_replace($none, ['wrap' => TRUE])],
+      'wrap as a string' => [['wrap_items' => '1'], \array_replace($none, ['wrap' => TRUE])],
+      'wrap as junk' => [['wrap_items' => 'maybe'], $none],
       'zero limit means no limit' => [['limit' => 0], $none],
       'negative values' => [['limit' => -2, 'offset' => -5, 'page_condition_page' => -1], $none],
       'junk values' => [

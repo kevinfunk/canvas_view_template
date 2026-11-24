@@ -437,6 +437,70 @@ final class ViewTemplateRendererTest extends ViewTemplateKernelTestBase {
   }
 
   /**
+   * Without "Wrap each item" the repeater adds no markup around its items.
+   */
+  public function testItemsAreNotWrappedByDefault(): void {
+    [, $repeater_item, $item_item] = $this->repeaterWithItem();
+    $view_template = ViewTemplate::create([
+      'id' => 'test',
+      'label' => 'Test',
+      'component_tree' => [$repeater_item, $item_item],
+    ]);
+
+    $result = $this->renderWithData($view_template, new ViewRenderData(rowRenders: ['ROW_A', 'ROW_B']));
+    $rendered = (string) $this->renderer->renderInIsolation($result);
+
+    self::assertStringNotContainsString('cvt-item', $rendered);
+    self::assertStringNotContainsString('data-cvt-position', $rendered);
+  }
+
+  /**
+   * With "Wrap each item", each item carries its position.
+   */
+  public function testWrappedItemsCarryTheirPosition(): void {
+    [, $repeater_item, $item_item] = $this->repeaterWithItem([
+      ViewTemplateRepeater::INPUT_OFFSET => 1,
+      ViewTemplateRepeater::INPUT_LIMIT => 3,
+      ViewTemplateRepeater::INPUT_WRAP_ITEMS => TRUE,
+    ]);
+    $view_template = ViewTemplate::create([
+      'id' => 'test',
+      'label' => 'Test',
+      'component_tree' => [$repeater_item, $item_item],
+    ]);
+
+    $rows = ['ROW_A', 'ROW_B', 'ROW_C', 'ROW_D', 'ROW_E'];
+    $result = $this->renderWithData($view_template, new ViewRenderData(rowRenders: $rows));
+    $rendered = (string) $this->renderer->renderInIsolation($result);
+
+    // The slice is B to D, so position counts from B.
+    self::assertSame(1, \preg_match('/<div class="cvt-item cvt-item--odd cvt-item--first" data-cvt-position="1">\s*ROW_B\s*<\/div>/', $rendered), $rendered);
+    self::assertSame(1, \preg_match('/<div class="cvt-item cvt-item--even" data-cvt-position="2">\s*ROW_C\s*<\/div>/', $rendered), $rendered);
+    self::assertSame(1, \preg_match('/<div class="cvt-item cvt-item--odd cvt-item--last" data-cvt-position="3">\s*ROW_D\s*<\/div>/', $rendered), $rendered);
+    self::assertStringNotContainsString('ROW_A', $rendered);
+    self::assertStringNotContainsString('ROW_E', $rendered);
+    self::assertSame(3, \substr_count($rendered, 'cvt-item '));
+  }
+
+  /**
+   * A single wrapped item is both first and last.
+   */
+  public function testSingleWrappedItemIsFirstAndLast(): void {
+    [, $repeater_item, $item_item] = $this->repeaterWithItem([ViewTemplateRepeater::INPUT_WRAP_ITEMS => TRUE]);
+    $view_template = ViewTemplate::create([
+      'id' => 'test',
+      'label' => 'Test',
+      'component_tree' => [$repeater_item, $item_item],
+    ]);
+
+    $result = $this->renderWithData($view_template, new ViewRenderData(rowRenders: ['ONLY']));
+    $rendered = (string) $this->renderer->renderInIsolation($result);
+
+    self::assertStringContainsString('cvt-item--first', $rendered);
+    self::assertStringContainsString('cvt-item--last', $rendered);
+  }
+
+  /**
    * Multiple repeaters each apply their own limit/offset to the full row set.
    */
   public function testMultipleIndependentRepeaters(): void {

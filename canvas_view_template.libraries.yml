@@ -12,6 +12,12 @@ style_options:
     - core/once
     - core/drupalSettings
 
+# Items wrapped by "View repeater" take no box of their own.
+item:
+  css:
+    component:
+      css/item.css: {}
+
 # "View field" label beside the value.
 field:
   css:

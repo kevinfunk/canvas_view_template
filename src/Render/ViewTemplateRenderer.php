@@ -181,13 +181,19 @@ final class ViewTemplateRenderer {
   private static function renderRepeater(ViewTemplate $view_template, array $tree_items, array $repeater_item, RowSet $rows, int $current_page, array $condition_values): array {
     $repeater_uuid = $repeater_item['uuid'];
     // Stored values may be strings or junk (API, config import): read safely.
-    ['limit' => $limit, 'offset' => $offset, 'mode' => $page_condition_mode, 'page' => $page_condition_page] = ViewTemplateRepeater::normalizeSettings($repeater_item['inputs'] ?? []);
+    [
+      'limit' => $limit,
+      'offset' => $offset,
+      'mode' => $page_condition_mode,
+      'page' => $page_condition_page,
+      'wrap' => $wrap,
+    ] = ViewTemplateRepeater::normalizeSettings($repeater_item['inputs'] ?? []);
     if (self::pageConditionExcludesPage($page_condition_mode, $page_condition_page, $current_page)) {
       return [];
     }
 
     $subtree_items = self::collectSlotSubtree($tree_items, $repeater_uuid, ViewTemplateRepeater::SLOT_NAME);
-    return self::renderRowsThroughSubtree($view_template, $subtree_items, $rows->slice($offset, $limit), $condition_values);
+    return self::renderRowsThroughSubtree($view_template, $subtree_items, $rows->slice($offset, $limit), $condition_values, $wrap);
   }
 
   /**
@@ -263,17 +269,22 @@ final class ViewTemplateRenderer {
    *   The rows to render, already limited and offset.
    * @param array<string, array|null> $condition_values
    *   What each "View condition" resumes with, by tree UUID.
+   * @param bool $wrap
+   *   Whether to wrap each copy in an element carrying its position.
    *
    * @return array
    *   One copy of the subtree per row; empty if there is no subtree.
    */
-  private static function renderRowsThroughSubtree(ViewTemplate $view_template, array $subtree_items, RowSet $rows, array $condition_values): array {
+  private static function renderRowsThroughSubtree(ViewTemplate $view_template, array $subtree_items, RowSet $rows, array $condition_values, bool $wrap = FALSE): array {
     if ($subtree_items === []) {
       return [];
     }
     $assembled = [];
     $subtree = $view_template->getComponentSubtree($subtree_items);
+    $count = \count($rows->renders);
+    $position = 0;
     foreach (\array_keys($rows->renders) as $index) {
+      $position++;
       $fiber = new \Fiber(fn() => $subtree->toRenderable($view_template, FALSE));
       $component_instance = $fiber->start();
       $row = $rows->render($index);
@@ -287,9 +298,40 @@ final class ViewTemplateRenderer {
         };
       }
       \assert($fiber->isTerminated());
-      $assembled['repeated_item_' . $index] = $fiber->getReturn();
+      $item = $fiber->getReturn();
+      $assembled['repeated_item_' . $index] = $wrap ? self::wrapItem($item, $position, $count) : $item;
     }
     return $assembled;
+  }
+
+  /**
+   * Wraps one repeated item in an element that carries its position.
+   *
+   * @param array $item
+   *   The item's render array.
+   * @param int $position
+   *   The item's place in the repeater, starting at 1.
+   * @param int $count
+   *   How many items the repeater shows.
+   *
+   * @return array
+   *   The wrapped render array.
+   */
+  private static function wrapItem(array $item, int $position, int $count): array {
+    $classes = ['cvt-item', $position % 2 === 1 ? 'cvt-item--odd' : 'cvt-item--even'];
+    if ($position === 1) {
+      $classes[] = 'cvt-item--first';
+    }
+    if ($position === $count) {
+      $classes[] = 'cvt-item--last';
+    }
+    return [
+      '#type' => 'html_tag',
+      '#tag' => 'div',
+      '#attributes' => ['class' => $classes, 'data-cvt-position' => $position],
+      '#attached' => ['library' => ['canvas_view_template/item']],
+      'item' => $item,
+    ];
   }
 
   /**

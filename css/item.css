@@ -1,0 +1,12 @@
+/**
+ * @file
+ * The wrapper "View repeater" puts around each item when asked to.
+ *
+ * It exists for its position classes only. With no box of its own, the
+ * item's contents stay direct children of the grid or row around the
+ * repeater, so a Row and Column layout keeps working.
+ */
+
+.cvt-item {
+  display: contents;
+}

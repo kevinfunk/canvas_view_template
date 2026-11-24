@@ -102,7 +102,7 @@ ddev exec php web/modules/custom/canvas_view_template/tests/mutation/run.php
 ddev exec php web/modules/custom/canvas_view_template/tests/mutation/run.php --only=rowset-ignores-limit
 ```
 
-`tests/mutation/mutants.php` lists 18 changes, each with what it breaks and
+`tests/mutation/mutants.php` lists 20 changes, each with what it breaks and
 the test files that must fail. Examples: a repeater ignoring its limit, a
 delete lock that never forbids, a duplicate route without its CSRF token, and
 Canvas's schema not being told about this module's sources.

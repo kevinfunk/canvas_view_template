@@ -110,6 +110,23 @@ repeater. Put the repeater in a Row and a Column (span 4 for three
 across) in its slot, and the Row's gap and the Column's span control the
 grid.
 
+**Styling by position.** Turn on **Wrap each item** and the repeater puts each
+item in a `div` with these classes and a number:
+
+- `cvt-item` on every item.
+- `cvt-item--first` and `cvt-item--last` on the first and last item the
+  repeater shows (both on a single item).
+- `cvt-item--odd` or `cvt-item--even`, by position.
+- `data-cvt-position`, the position starting at 1, for CSS such as
+  `[data-cvt-position="3"]`.
+
+Positions count the items this repeater shows, after its offset and limit, not
+the position in the view. The wrapper has `display: contents`, so it draws no
+box and a Row and Column grid around the repeater keeps working. Style the
+contents through it, for example `.cvt-item--first .card`. Give it your own
+`display` to make it a box. It is off by default, and the editor preview does
+not show it.
+
 A `View repeater`'s **page condition** ("Show on") gates the whole
 repeater on or off by pager page number, independent of its
 limit/offset — this is for layouts that need genuinely different
