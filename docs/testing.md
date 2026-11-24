@@ -68,6 +68,14 @@ Canvas 1.13 and Drupal 12 cannot be installed together, and a wider constraint
 here could not be tested. Widen `core_version_requirement` and `composer.json`
 once a Canvas release supports Drupal 12, then run the suites on Drupal 12.
 
+The kernel suite has been run on Drupal 12.0.0-beta2 in a separate copy of the
+site, with Canvas 1.13's core constraint overridden and two patches to Canvas:
+its test base class and its install hooks, which Drupal 12 does not accept.
+All 399 tests passed. Two things in the output are Canvas's, not this module's: its install
+hooks, and a PHP warning where Canvas unsets `$typedData` on its entities.
+Browser tests were not run. A failure on Drupal 12 may be Canvas's, so check
+which side it is on first.
+
 Meanwhile the code is kept free of Drupal 12 deprecations. Check with
 [Upgrade Status](https://www.drupal.org/project/upgrade_status):
 
